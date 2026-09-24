@@ -148,12 +148,9 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .day-acc.open .day-acc-chev { transform:rotate(180deg); }
 .day-acc-body { display:none; padding:0 12px 12px; }
 .day-acc.open .day-acc-body { display:block; }
-.slot-row { display:grid; grid-template-columns:22px 1fr 88px 88px; gap:6px; align-items:center; margin-bottom:6px; }
+.slot-row { display:grid; grid-template-columns:22px 1fr; gap:6px; align-items:center; margin-bottom:6px; }
 .slot-n { font-family:var(--FD); font-size:16px; color:var(--muted); text-align:center; }
 .slot-row .input-field { padding:8px 10px; font-size:12px; }
-.slot-row input[type=time] { font-family:var(--FM); font-size:11px; color-scheme:dark; padding:8px 6px; }
-.slot-head { display:grid; grid-template-columns:22px 1fr 88px 88px; gap:6px; margin-bottom:4px; }
-.slot-head span { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; }
 .fast-note { font-size:12px; color:var(--muted); padding:4px 2px; }
 .copy-row { display:flex; justify-content:flex-end; margin-top:4px; }
 .link-btn { background:none; border:none; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; font-weight:600; cursor:pointer; }
@@ -228,7 +225,6 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .food-log-section { background:var(--s1); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:8px; }
 .food-log-head { padding:10px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .food-log-meal-name { font-family:var(--FD); font-size:17px; letter-spacing:0.04em; }
-.food-log-window { font-family:var(--FM); font-size:10px; color:var(--muted); margin-left:8px; }
 .food-log-cals { font-family:var(--FM); font-size:11px; color:var(--lime); white-space:nowrap; }
 .food-log-item { display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid var(--border); gap:10px; }
 .food-log-item:last-child { border-bottom:none; }
@@ -322,12 +318,6 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 /* iOS Safari zooms into any field under 16px — keep touch devices at 16px */
 @media (pointer: coarse) {
   input, textarea, select { font-size:16px !important; }
-  .slot-head { display:none; }
-  .slot-row { grid-template-columns:22px 1fr 1fr; }
-  .slot-row input:not([type=time]) { grid-column:2 / 4; }
-  .slot-row input[type=time] { grid-column:auto; }
-  .slot-row input[data-f=start] { grid-column:2; }
-  .slot-row { margin-bottom:12px; }
 }
 </style>
 </head>
@@ -365,7 +355,7 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 
     <div class="settings-section">
       <div class="settings-section-title">Meal Schedule</div>
-      <div class="settings-section-sub">Set meals per weekday. Today's slots load automatically. Names and time windows are optional.</div>
+      <div class="settings-section-sub">Set meals per weekday. Today's slots load automatically. Tap ▼ to name meals (optional).</div>
       <div id="schedule"></div>
     </div>
 
@@ -527,7 +517,6 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
 const r0 = v => Math.round(v);
 const r1 = v => Math.round(v * 10) / 10;
-const fmtTime = t => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2,'0') : ''}${h < 12 ? 'am' : 'pm'}`; };
 const totals = items => items.reduce((a, i) => ({ cal:a.cal+n(i.cal), p:a.p+n(i.p), c:a.c+n(i.c), s:a.s+n(i.s), f:a.f+n(i.f) }), { cal:0, p:0, c:0, s:0, f:0 });
 
 function todaySchedule() {
@@ -535,11 +524,10 @@ function todaySchedule() {
   const slots = [];
   for (let i = 0; i < d.count; i++) {
     const s = d.slots[i] || {};
-    slots.push({ name: (s.name || '').trim() || `Meal ${i+1}`, start: s.start || '', end: s.end || '' });
+    slots.push({ name: (s.name || '').trim() || `Meal ${i+1}` });
   }
   return { count: d.count, slots };
 }
-const slotWindow = s => s.start && s.end ? `${fmtTime(s.start)}–${fmtTime(s.end)}` : s.start ? `from ${fmtTime(s.start)}` : s.end ? `by ${fmtTime(s.end)}` : '';
 const itemSlot = (it, count) => Math.min(Math.max(0, it.slot | 0), count - 1);
 
 /* ═══════════════════════════════ SETUP UI */
@@ -560,14 +548,12 @@ function renderSchedule() {
     let body = '';
     if (d.count === 0) body = `<div class="fast-note">Fasting day — the log is replaced with a fasting timer.</div>`;
     else {
-      body = `<div class="slot-head"><span></span><span>Name</span><span>Start</span><span>End</span></div>`;
+      body = '';
       for (let s = 0; s < d.count; s++) {
         const sl = d.slots[s] || {};
         body += `<div class="slot-row">
           <div class="slot-n">${s+1}</div>
           <input class="input-field" data-d="${i}" data-s="${s}" data-f="name" value="${esc(sl.name)}" placeholder="Meal ${s+1}">
-          <input class="input-field" type="time" data-d="${i}" data-s="${s}" data-f="start" value="${esc(sl.start)}">
-          <input class="input-field" type="time" data-d="${i}" data-s="${s}" data-f="end" value="${esc(sl.end)}">
         </div>`;
       }
     }
@@ -594,7 +580,7 @@ function renderRestrictions() {
 $('goalRow').onclick = e => { const b = e.target.closest('[data-goal]'); if (!b) return; S.goal = b.dataset.goal; renderSetup(); };
 $('schedule').addEventListener('change', e => {
   const t = e.target;
-  if (t.dataset.count != null) { const i = +t.dataset.count; S.schedule[i].count = +t.value; openDays.add(i); renderSchedule(); }
+  if (t.dataset.count != null) { const i = +t.dataset.count; S.schedule[i].count = +t.value; openDays.delete(i); renderSchedule(); }
 });
 $('schedule').addEventListener('input', e => {
   const t = e.target; if (t.dataset.d == null) return;
@@ -690,9 +676,6 @@ function renderToday() {
 }
 
 function defaultSlot(sch) {
-  const now = new Date(); const hm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const inWin = sch.slots.findIndex(s => s.start && s.end && hm >= s.start && hm <= s.end);
-  if (inWin >= 0) return inWin;
   const used = new Set(day.items.map(i => itemSlot(i, sch.count)));
   const next = sch.slots.findIndex((_, i) => !used.has(i));
   return next >= 0 ? next : sch.count - 1;
@@ -706,7 +689,7 @@ function renderFood(sch) {
     const st = totals(items.map(x => x.it));
     return `<div class="food-log-section">
       <div class="food-log-head">
-        <div><span class="food-log-meal-name">${esc(s.name)}</span><span class="food-log-window">${slotWindow(s)}</span></div>
+        <div><span class="food-log-meal-name">${esc(s.name)}</span></div>
         <span class="food-log-cals">${items.length ? r0(st.cal) + ' kcal · ' + r0(st.p) + 'P' : ''}</span>
       </div>
       ${items.length ? items.map(({ it, idx }) => `<div class="food-log-item">
@@ -836,14 +819,12 @@ function buildSystem() {
   const sch = todaySchedule();
   const T = S.targets;
   const t = totals(day.items);
-  const hm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const restr = [...S.presets, ...S.custom];
   const slotLines = sch.slots.map((s, i) => {
     const items = day.items.filter(it => itemSlot(it, sch.count) === i);
     const st = totals(items);
-    const passed = s.end && hm > s.end;
-    const status = items.length ? `EATEN (${r0(st.cal)} kcal, ${r0(st.p)}P/${r0(st.c)}C/${r0(st.s)}S/${r0(st.f)}F): ${items.map(it => it.name).join(', ')}` : (passed ? 'not logged, window has passed' : 'NOT YET EATEN');
-    return `  ${i+1}. ${s.name}${slotWindow(s) ? ' [' + slotWindow(s) + ']' : ''} — ${status}`;
+    const status = items.length ? `EATEN (${r0(st.cal)} kcal, ${r0(st.p)}P/${r0(st.c)}C/${r0(st.s)}S/${r0(st.f)}F): ${items.map(it => it.name).join(', ')}` : 'NOT YET EATEN';
+    return `  ${i+1}. ${s.name} — ${status}`;
   }).join('\n');
   const eatenSlots = new Set(day.items.map(i => itemSlot(i, sch.count)));
   const mealsLeft = sch.count - eatenSlots.size;
@@ -870,7 +851,7 @@ ${sch.count === 0
 - Weekly schedule: ${weekPlan}
 
 COACHING
-- Plan the rest of the day around the remaining macros AND the remaining meal count/time windows — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
+- Plan the rest of the day around the remaining macros AND the remaining meal count and time of day — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
 - Recommend specific foods and portions, not categories.
 - Whenever you suggest a specific food or meal the user could eat, append one log block per item on its own lines, exactly in this format (valid JSON, numbers only, sugar included):
 <log>{"name":"6oz grilled chicken breast","cal":280,"p":52,"c":0,"s":0,"f":6,"meal":"Meal 2"}</log>
