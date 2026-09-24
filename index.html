@@ -312,14 +312,11 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .chat-input-row textarea { flex:1; resize:none; min-height:44px; max-height:120px; padding:11px 14px; }
 .send-btn { background:var(--lime); border:none; border-radius:10px; width:48px; color:#000; font-size:18px; font-weight:700; cursor:pointer; flex-shrink:0; }
 .send-btn:disabled { opacity:.5; }
-.photo-btn { background:var(--s2); border:1px solid var(--border); border-radius:10px; width:48px; color:var(--muted); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .15s; }
-.photo-btn:hover { border-color:var(--lime); color:var(--lime); }
-.photo-btn svg { width:20px; height:20px; }
-.photo-preview { display:flex; align-items:center; gap:10px; padding:10px 18px 0; flex-shrink:0; }
-.photo-preview img { width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid var(--border2); }
-.photo-preview span { flex:1; font-size:12px; color:var(--muted); }
-.msg-img { display:block; max-width:180px; max-height:220px; border-radius:8px; margin-bottom:6px; }
-.msg-img-tag { display:block; font-family:var(--FM); font-size:10px; color:var(--muted); margin-bottom:4px; }
+.grocery-empty { border:1px dashed var(--border2); border-radius:12px; padding:22px 14px; text-align:center; color:var(--muted); font-size:13px; cursor:pointer; transition:all .15s; }
+.grocery-empty:hover { border-color:var(--lime); color:var(--lime); }
+.grocery-img { display:block; width:100%; max-height:260px; object-fit:contain; background:var(--s2); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; }
+.grocery-actions { display:flex; gap:8px; }
+.grocery-actions .btn-secondary { flex:1; }
 
 .hidden { display:none !important; }
 
@@ -377,6 +374,14 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
         <input class="input-field" id="customInput" placeholder="e.g. Dr. Heather's protocol, no seed oils">
         <button class="btn-secondary" id="customAdd">Add</button>
       </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Grocery List</div>
+      <div class="settings-section-sub">Snap your grocery list and the coach builds meals from it. Only your latest photo is kept.</div>
+      <input type="file" id="groceryInput" accept="image/*" hidden>
+      <div id="groceryBox"></div>
+      <div class="settings-status" id="groceryStatus"></div>
     </div>
 
     <button class="btn-primary" id="saveSetup">Save setup</button>
@@ -477,16 +482,7 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
     </div>
     <div class="chat-body" id="chatBody"></div>
     <div class="quick-row" id="quickRow"></div>
-    <div class="photo-preview hidden" id="photoPreview">
-      <img id="photoThumb" alt="">
-      <span>Grocery list attached</span>
-      <button class="modal-close" id="photoRemove" aria-label="Remove photo">✕</button>
-    </div>
     <div class="chat-input-row">
-      <input type="file" id="photoInput" accept="image/*" hidden>
-      <button class="photo-btn" id="photoBtn" aria-label="Add a photo of a grocery list">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      </button>
       <textarea class="input-field" id="chatInput" rows="1" placeholder="What should I eat next?"></textarea>
       <button class="send-btn" id="chatSend">↑</button>
     </div>
@@ -555,6 +551,8 @@ function renderSetup() {
   $('goalRow').innerHTML = GOALS.map(g => `<button class="goal-btn ${S.goal === g ? 'active' : ''}" data-goal="${g}">${g}</button>`).join('');
   renderSchedule();
   renderRestrictions();
+  renderGrocery();
+  setGroceryStatus('');
 }
 
 function renderSchedule() {
@@ -870,7 +868,7 @@ ${sch.count === 0
 COACHING
 - Plan the rest of the day around the remaining macros AND the remaining meal count and time of day — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
 - Recommend specific foods and portions, not categories.
-- If the user shares a photo of a grocery list (or groceries/receipt), read every item you can make out, briefly note anything that breaks their restrictions, then build meals using ONLY those groceries (plus basic pantry staples like salt, pepper, spices, and a compliant cooking fat) that fit their remaining macros and remaining meal count. Give portions for each meal.
+- ${groceryImg ? "GROCERY LIST: the user's current grocery list photo is attached to their first message. When suggesting meals to make at home, build them from those groceries (plus basic pantry staples like salt, pepper, spices, and a compliant cooking fat) sized to their remaining macros and meal count, with portions. If asked what's on the list, read every item you can make out and flag anything that breaks their restrictions. Restaurant questions are unaffected." : 'No grocery list on file.'}
 - Whenever you suggest a specific food or meal the user could eat, append one log block per item on its own lines, exactly in this format (valid JSON, numbers only, sugar included):
 <log>{"name":"6oz grilled chicken breast","cal":280,"p":52,"c":0,"s":0,"f":6,"meal":"Meal 2"}</log>
   "meal" must be the name of one of today's remaining meal slots. Do not mention the log blocks in your prose — the app turns them into one-tap log buttons.`;
@@ -901,7 +899,7 @@ function renderChat() {
     body.innerHTML = `<div class="chat-empty">Ask what to eat next, what to order at a restaurant,<br>or how to hit your protein with ${todaySchedule().count || 'no'} meal${todaySchedule().count === 1 ? '' : 's'} today.</div>`;
   } else {
     body.innerHTML = chat.map((m, mi) => {
-      if (m.role === 'user') return `<div class="msg user">${m.img ? `<img class="msg-img" src="${m.img}" alt="Grocery list">` : m.hadImage ? '<span class="msg-img-tag">📷 Grocery list photo</span>' : ''}${esc(m.content).replace(/\n/g, '<br>')}</div>`;
+      if (m.role === 'user') return `<div class="msg user">${esc(m.content).replace(/\n/g, '<br>')}</div>`;
       const { prose, logs } = parseBot(m.content);
       return `<div class="msg bot">${mdLite(prose)}${logs.map((l, li) => {
         const done = (m.logged || []).includes(li);
@@ -919,15 +917,13 @@ function renderChat() {
     `${r0(T.cal - t.cal)} kcal · ${r0(T.p - t.p)}g protein left · ${sch.count - new Set(day.items.map(i => itemSlot(i, sch.count))).size} meals to go`;
   const quick = sch.count === 0
     ? ['How do I get through the hunger?', 'Electrolytes for today?', 'Plan my break-fast meal for tomorrow']
-    : ['📷 Build meals from my grocery list', 'What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
+    : ['What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
   $('quickRow').innerHTML = quick.map(q => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('');
 }
 
-const GROCERY_PROMPT = "Here's my grocery list — build meals from it that fit my remaining macros, meals, and restrictions.";
-let pendingImg = null; // data URL of the photo waiting to be sent
+let groceryImg = null; // data URL of the saved grocery list photo
 
-// Photos are too big for localStorage — keep only the latest grocery photo in IndexedDB.
-// Older photo messages keep a text marker.
+// Photos are too big for localStorage — the latest grocery photo lives in IndexedDB
 const photoDB = (() => {
   let dbp;
   const open = () => dbp ||= new Promise((res, rej) => {
@@ -940,37 +936,27 @@ const photoDB = (() => {
     return new Promise((res, rej) => { const t = db.transaction('p', mode); const r = fn(t.objectStore('p')); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); });
   };
   return {
-    get: () => tx('readonly', s => s.get('latest')).catch(() => null),
-    set: v => tx('readwrite', s => s.put(v, 'latest')).catch(() => {}),
-    clear: () => tx('readwrite', s => s.delete('latest')).catch(() => {}),
+    get: () => tx('readonly', s => s.get('grocery')).catch(() => null),
+    set: v => tx('readwrite', s => s.put(v, 'grocery')),
+    clear: () => tx('readwrite', s => s.delete('grocery')).catch(() => {}),
   };
 })();
-const saveChat = () => store.set('mt_chat', chat.map(({ img, ...m }) => m));
-function apiContent(m) {
-  if (m.role !== 'user') return m.content;
-  if (m.img) return [
-    { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:m.img.split(',')[1] } },
-    { type:'text', text:m.content },
-  ];
-  return m.hadImage ? `[I shared a photo of my grocery list earlier]\n${m.content}` : m.content;
-}
+const saveChat = () => store.set('mt_chat', chat.map(({ img, hadImage, imgId, ...m }) => m));
 
 async function sendChat(text) {
   text = (text || '').trim();
-  if ((!text && !pendingImg) || chatBusy) return;
-  const msg = { role:'user', content: text || GROCERY_PROMPT };
-  if (pendingImg) {
-    chat.forEach(m => delete m.img); // only the newest photo is kept
-    msg.img = pendingImg; msg.hadImage = true; msg.imgId = Date.now();
-    photoDB.set({ id: msg.imgId, img: msg.img });
-  }
-  chat.push(msg);
-  clearPhoto();
+  if (!text || chatBusy) return;
+  chat.push({ role:'user', content:text });
   $('chatInput').value = ''; autoGrow();
   chatBusy = true; $('chatSend').disabled = true; renderChat();
   try {
-    const history = chat.slice(-30).map(m => ({ role:m.role, content:apiContent(m) }));
+    const history = chat.slice(-30).map(m => ({ role:m.role, content:m.content }));
     while (history.length && history[0].role !== 'user') history.shift();
+    if (groceryImg) history[0].content = [
+      { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:groceryImg.split(',')[1] } },
+      { type:'text', text:'[My current grocery list photo]' },
+      { type:'text', text:history[0].content },
+    ];
     const reply = await callClaude({ model:CHAT_MODEL, max_tokens:16000, system:buildSystem(), messages:history, extra:{ fallbacks:'default' }, beta:'server-side-fallback-2026-07-01' });
     chat.push({ role:'assistant', content: reply || '…', logged:[] });
   } catch (err) {
@@ -978,7 +964,6 @@ async function sendChat(text) {
     chatBusy = false; $('chatSend').disabled = false; renderChat();
     $('chatBody').innerHTML += `<div class="msg bot err">${esc(err.message)}</div>`;
     $('chatInput').value = text;
-    if (msg.img) showPhoto(msg.img);
     return;
   }
   chatBusy = false; $('chatSend').disabled = false;
@@ -1003,14 +988,26 @@ function loadPhoto(file) {
     img.src = url;
   });
 }
-function showPhoto(dataUrl) { pendingImg = dataUrl; $('photoThumb').src = dataUrl; $('photoPreview').classList.remove('hidden'); $('chatInput').placeholder = 'Add a note (optional) and send'; }
-function clearPhoto() { pendingImg = null; $('photoInput').value = ''; $('photoPreview').classList.add('hidden'); $('chatInput').placeholder = 'What should I eat next?'; }
-$('photoBtn').onclick = () => $('photoInput').click();
-$('photoRemove').onclick = clearPhoto;
-$('photoInput').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  try { showPhoto(await loadPhoto(f)); $('chatInput').focus(); }
-  catch (err) { $('chatBody').innerHTML += `<div class="msg bot err">${esc(err.message)}</div>`; }
+
+function renderGrocery() {
+  $('groceryBox').innerHTML = groceryImg
+    ? `<img class="grocery-img" src="${groceryImg}" alt="Grocery list">
+       <div class="grocery-actions"><button class="btn-secondary" data-g="pick">Replace photo</button><button class="btn-secondary" data-g="remove">Remove</button></div>`
+    : `<div class="grocery-empty" data-g="pick">📷 Add grocery list photo</div>`;
+}
+function setGroceryStatus(msg, cls) { $('groceryStatus').textContent = msg; $('groceryStatus').className = 'settings-status ' + (cls || ''); }
+$('groceryBox').onclick = async e => {
+  const b = e.target.closest('[data-g]'); if (!b) return;
+  if (b.dataset.g === 'pick') return $('groceryInput').click();
+  await photoDB.clear(); groceryImg = null; renderGrocery(); setGroceryStatus('Removed.', 'ok');
+};
+$('groceryInput').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const img = await loadPhoto(f);
+    await photoDB.set(img);
+    groceryImg = img; renderGrocery(); setGroceryStatus('Saved — the coach will use this list.', 'ok');
+  } catch (err) { setGroceryStatus(err.message || "Couldn't save that photo.", 'err'); }
 };
 
 $('chatBody').onclick = e => {
@@ -1024,15 +1021,12 @@ $('chatBody').onclick = e => {
   saveChat();
   renderChat();
 };
-$('quickRow').onclick = e => {
-  const b = e.target.closest('[data-q]'); if (!b) return;
-  if (b.dataset.q.startsWith('📷')) $('photoInput').click(); else sendChat(b.dataset.q);
-};
+$('quickRow').onclick = e => { const b = e.target.closest('[data-q]'); if (b) sendChat(b.dataset.q); };
 $('chatSend').onclick = () => sendChat($('chatInput').value);
 $('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat($('chatInput').value); } };
 function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
 $('chatInput').oninput = autoGrow;
-$('chatClear').onclick = () => { chat = []; clearPhoto(); photoDB.clear(); saveChat(); renderChat(); };
+$('chatClear').onclick = () => { chat = []; saveChat(); renderChat(); };
 
 function openChat() { $('chatOverlay').classList.add('open'); $('chatSheet').style.transform = ''; renderChat(); document.body.style.overflow = 'hidden'; }
 function closeChat() { $('chatOverlay').classList.remove('open'); document.body.style.overflow = ''; }
@@ -1070,12 +1064,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('chatOve
 
 /* ═══════════════════════════════ INIT */
 renderToday();
-photoDB.get().then(p => {
-  const m = p && chat.find(m => m.imgId === p.id);
-  if (!m) return;
-  m.img = p.img;
-  if ($('chatOverlay').classList.contains('open')) renderChat();
-});
+photoDB.get().then(p => { groceryImg = typeof p === 'string' ? p : null; renderGrocery(); });
 if (!store.get('mt_setup_done', false)) toggleSetup(true);
 </script>
 </body>
