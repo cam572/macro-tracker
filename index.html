@@ -486,8 +486,8 @@ const MACROS = [
   { k:'s', label:'Sugar',   color:'#b98cff' },
   { k:'f', label:'Fat',     color:'#ff7a3d' },
 ];
-const CHAT_MODEL = 'claude-sonnet-5';
-const FILL_MODEL = 'claude-haiku-4-5-20251001';
+const CHAT_MODEL = 'claude-opus-5';
+const FILL_MODEL = 'claude-sonnet-5';
 const RING_C = 2 * Math.PI * 23;
 
 /* ═══════════════════════════════ STORAGE */
@@ -734,15 +734,17 @@ $('fName').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('as
 function setAi(msg, cls) { $('aiStatus').textContent = msg; $('aiStatus').className = 'ai-status ' + (cls || ''); }
 
 /* ═══════════════════════════════ ANTHROPIC */
-async function callClaude({ model, system, messages, max_tokens }) {
+async function callClaude({ model, system, messages, max_tokens, extra = {}, beta }) {
   if (!S.apiKey) throw new Error('Add your Anthropic API key in Setup.');
+  const headers = { 'Content-Type':'application/json', 'x-api-key':S.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' };
+  if (beta) headers['anthropic-beta'] = beta;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'x-api-key':S.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-    body: JSON.stringify({ model, max_tokens, system, messages }),
+    method:'POST', headers,
+    body: JSON.stringify({ model, max_tokens, system, messages, ...extra }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `API error ${res.status}`);
+  if (data.stop_reason === 'refusal') throw new Error("Claude couldn't answer that one — try rephrasing.");
   return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
 }
 
@@ -752,7 +754,7 @@ $('askAi').onclick = async () => {
   $('askAi').disabled = true; setAi('Estimating macros…', 'thinking');
   try {
     const txt = await callClaude({
-      model: FILL_MODEL, max_tokens: 300,
+      model: FILL_MODEL, max_tokens: 1024, extra: { thinking: { type:'disabled' } },
       system: 'You are a nutrition database. Estimate macros for the described food and portion (assume a typical serving if unspecified). Return ONLY a JSON object, no markdown: {"name":"short clean name","calories":0,"protein":0,"carbs":0,"sugar":0,"fat":0}. Grams, rounded to 1 decimal.',
       messages: [{ role:'user', content: q }],
     });
@@ -920,7 +922,7 @@ async function sendChat(text) {
   try {
     const history = chat.slice(-30).map(m => ({ role:m.role, content:m.content }));
     while (history.length && history[0].role !== 'user') history.shift();
-    const reply = await callClaude({ model:CHAT_MODEL, max_tokens:1500, system:buildSystem(), messages:history });
+    const reply = await callClaude({ model:CHAT_MODEL, max_tokens:16000, system:buildSystem(), messages:history, extra:{ fallbacks:'default' }, beta:'server-side-fallback-2026-07-01' });
     chat.push({ role:'assistant', content: reply || '…', logged:[] });
   } catch (err) {
     chat.pop();
