@@ -926,7 +926,25 @@ function renderChat() {
 const GROCERY_PROMPT = "Here's my grocery list — build meals from it that fit my remaining macros, meals, and restrictions.";
 let pendingImg = null; // data URL of the photo waiting to be sent
 
-// Photos stay in memory only (too big for localStorage); history keeps a marker instead
+// Photos are too big for localStorage — keep only the latest grocery photo in IndexedDB.
+// Older photo messages keep a text marker.
+const photoDB = (() => {
+  let dbp;
+  const open = () => dbp ||= new Promise((res, rej) => {
+    const r = indexedDB.open('mt_photos', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('p');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const tx = async (mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => { const t = db.transaction('p', mode); const r = fn(t.objectStore('p')); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); });
+  };
+  return {
+    get: () => tx('readonly', s => s.get('latest')).catch(() => null),
+    set: v => tx('readwrite', s => s.put(v, 'latest')).catch(() => {}),
+    clear: () => tx('readwrite', s => s.delete('latest')).catch(() => {}),
+  };
+})();
 const saveChat = () => store.set('mt_chat', chat.map(({ img, ...m }) => m));
 function apiContent(m) {
   if (m.role !== 'user') return m.content;
@@ -941,7 +959,11 @@ async function sendChat(text) {
   text = (text || '').trim();
   if ((!text && !pendingImg) || chatBusy) return;
   const msg = { role:'user', content: text || GROCERY_PROMPT };
-  if (pendingImg) { msg.img = pendingImg; msg.hadImage = true; }
+  if (pendingImg) {
+    chat.forEach(m => delete m.img); // only the newest photo is kept
+    msg.img = pendingImg; msg.hadImage = true; msg.imgId = Date.now();
+    photoDB.set({ id: msg.imgId, img: msg.img });
+  }
   chat.push(msg);
   clearPhoto();
   $('chatInput').value = ''; autoGrow();
@@ -1010,7 +1032,7 @@ $('chatSend').onclick = () => sendChat($('chatInput').value);
 $('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat($('chatInput').value); } };
 function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
 $('chatInput').oninput = autoGrow;
-$('chatClear').onclick = () => { chat = []; clearPhoto(); saveChat(); renderChat(); };
+$('chatClear').onclick = () => { chat = []; clearPhoto(); photoDB.clear(); saveChat(); renderChat(); };
 
 function openChat() { $('chatOverlay').classList.add('open'); $('chatSheet').style.transform = ''; renderChat(); document.body.style.overflow = 'hidden'; }
 function closeChat() { $('chatOverlay').classList.remove('open'); document.body.style.overflow = ''; }
@@ -1048,6 +1070,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('chatOve
 
 /* ═══════════════════════════════ INIT */
 renderToday();
+photoDB.get().then(p => {
+  const m = p && chat.find(m => m.imgId === p.id);
+  if (!m) return;
+  m.img = p.img;
+  if ($('chatOverlay').classList.contains('open')) renderChat();
+});
 if (!store.get('mt_setup_done', false)) toggleSetup(true);
 </script>
 </body>
