@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Macros</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════ TOKENS */
+:root {
+  --bg:      #080808;
+  --s1:      #0f0f0f;
+  --s2:      #161616;
+  --s3:      #1e1e1e;
+  --border:  #222;
+  --border2: #2e2e2e;
+  --lime:    #c8f135;
+  --lime2:   rgba(200,241,53,0.08);
+  --blue:    #4da6ff;
+  --orange:  #ff7a3d;
+  --purple:  #b98cff;
+  --red:     #ff3b3b;
+  --text:    #f0f0f0;
+  --muted:   #555;
+  --muted2:  #333;
+  --FD: 'Bebas Neue', sans-serif;
+  --FB: 'Space Grotesk', sans-serif;
+  --FM: 'JetBrains Mono', monospace;
+  --radius: 16px;
+}
+
+/* ═══════════════════════════════ RESET */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { overscroll-behavior:none; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--FB);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+button { font-family: var(--FB); }
+
+/* ═══════════════════════════════ TOPBAR */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px 12px;
+  padding-top: max(14px, env(safe-area-inset-top));
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo { font-family: var(--FD); font-size: 26px; letter-spacing: 0.06em; line-height: 1; }
+.logo em { font-style: normal; color: var(--lime); }
+.gear-btn {
+  height: 34px; padding: 0 12px;
+  background: var(--s2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; transition: all .15s;
+}
+.gear-btn:hover, .gear-btn.on { border-color: var(--lime); color: var(--lime); }
+
+.panel { padding: 16px 16px 120px; max-width: 680px; margin: 0 auto; }
+@media (min-width: 700px) { .panel { padding: 24px 28px 120px; } }
+
+/* ═══════════════════════════════ SHARED COMPONENTS */
+.section-label {
+  font-family: var(--FM); font-size: 10px; letter-spacing: 0.2em; color: var(--muted);
+  text-transform: uppercase; margin: 24px 0 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.section-label.first { margin-top: 0; }
+
+.card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 10px; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: 20px; padding: 4px 10px;
+  font-family: var(--FM); font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.pill-lime { background:var(--lime2); color:var(--lime); border:1px solid rgba(200,241,53,.2); }
+.pill-blue { background:rgba(77,166,255,.08); color:var(--blue); border:1px solid rgba(77,166,255,.2); }
+.pill-orange { background:rgba(255,122,61,.08); color:var(--orange); border:1px solid rgba(255,122,61,.2); }
+
+.btn-primary {
+  width: 100%; padding: 14px;
+  background: var(--lime); border: none; border-radius: 12px; color: #000;
+  font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  cursor: pointer; transition: opacity .15s, transform .1s;
+}
+.btn-primary:hover { opacity: .9; }
+.btn-primary:active { transform: scale(.98); }
+
+.btn-secondary {
+  padding: 11px 18px; background: transparent;
+  border: 1px solid var(--border); border-radius: 10px; color: var(--muted);
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+  cursor: pointer; transition: all .15s;
+}
+.btn-secondary:hover { border-color: var(--lime); color: var(--lime); }
+
+.input-field {
+  width: 100%; background: var(--s2); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text); font-family: var(--FB); font-size: 14px; padding: 11px 14px;
+  outline: none; transition: border-color .15s;
+}
+.input-field:focus { border-color: var(--lime); }
+.input-field::placeholder { color: var(--muted); font-size: 13px; }
+select.input-field { appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 34px; }
+textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
+
+/* ═══════════════════════════════ SETTINGS / SETUP */
+.settings-section { background:var(--s1); border:1px solid var(--border); border-radius:var(--radius); padding:18px; margin-bottom:10px; }
+.settings-section-title { font-family:var(--FD); font-size:18px; letter-spacing:0.05em; margin-bottom:4px; }
+.settings-section-sub { font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:14px; }
+.settings-field { margin-bottom:10px; }
+.settings-field label, .mini-label { display:block; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:5px; font-weight:600; }
+.settings-status { font-size:12px; margin-top:10px; min-height:16px; }
+.settings-status.ok { color:var(--lime); }
+.settings-status.err { color:var(--red); }
+
+.goal-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.goal-btn {
+  padding:10px 4px; background:var(--s2); border:1px solid var(--border); border-radius:10px;
+  color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;
+  cursor:pointer; transition:all .15s;
+}
+.goal-btn.active { border-color:var(--lime); color:var(--lime); background:var(--lime2); }
+
+.macro-inputs { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:10px; }
+.macro-inputs.four { grid-template-columns:repeat(4,1fr); }
+.macro-input-field label { display:block; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:3px; }
+.macro-input-field input { width:100%; background:var(--s2); border:1px solid var(--border); border-radius:7px; color:var(--lime); font-family:var(--FM); font-size:14px; padding:7px 4px; text-align:center; outline:none; transition:border-color .15s; }
+.macro-input-field input:focus { border-color:var(--lime); }
+.macro-input-field input::placeholder { color:var(--muted); font-size:10px; }
+
+/* Meal schedule */
+.day-acc { background:var(--s2); border:1px solid var(--border); border-radius:12px; margin-bottom:6px; overflow:hidden; }
+.day-acc.today { border-color:rgba(200,241,53,.3); }
+.day-acc-head { display:flex; align-items:center; gap:10px; padding:10px 12px; }
+.day-acc-name { font-family:var(--FD); font-size:20px; letter-spacing:0.04em; width:42px; color:var(--muted); cursor:pointer; }
+.day-acc.today .day-acc-name { color:var(--lime); }
+.day-acc-head select { flex:1; padding:8px 34px 8px 12px; font-size:13px; }
+.day-acc-chev { background:none; border:none; color:var(--muted); font-size:12px; cursor:pointer; padding:6px; transition:transform .2s; }
+.day-acc.open .day-acc-chev { transform:rotate(180deg); }
+.day-acc-body { display:none; padding:0 12px 12px; }
+.day-acc.open .day-acc-body { display:block; }
+.slot-row { display:grid; grid-template-columns:22px 1fr 88px 88px; gap:6px; align-items:center; margin-bottom:6px; }
+.slot-n { font-family:var(--FD); font-size:16px; color:var(--muted); text-align:center; }
+.slot-row .input-field { padding:8px 10px; font-size:12px; }
+.slot-row input[type=time] { font-family:var(--FM); font-size:11px; color-scheme:dark; padding:8px 6px; }
+.slot-head { display:grid; grid-template-columns:22px 1fr 88px 88px; gap:6px; margin-bottom:4px; }
+.slot-head span { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; }
+.fast-note { font-size:12px; color:var(--muted); padding:4px 2px; }
+.copy-row { display:flex; justify-content:flex-end; margin-top:4px; }
+.link-btn { background:none; border:none; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; font-weight:600; cursor:pointer; }
+.link-btn:hover { color:var(--lime); }
+
+/* Restrictions */
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.chip {
+  background:var(--s2); border:1px solid var(--border); border-radius:20px;
+  padding:6px 12px; font-size:12px; color:var(--muted); cursor:pointer; transition:all .15s;
+  display:inline-flex; align-items:center; gap:6px; font-weight:500;
+}
+.chip:hover { border-color:var(--border2); color:var(--text); }
+.chip.active { border-color:var(--lime); color:var(--lime); background:var(--lime2); }
+.chip .x { font-size:12px; color:var(--muted); }
+.chip .x:hover { color:var(--red); }
+.add-row { display:flex; gap:8px; }
+.add-row .input-field { flex:1; }
+
+/* ═══════════════════════════════ TODAY */
+.today-date { font-family:var(--FM); font-size:11px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:4px; }
+.today-title { font-family:var(--FD); font-size:40px; letter-spacing:0.02em; line-height:1; margin-bottom:10px; }
+.today-title em { font-style:normal; color:var(--lime); }
+.today-pills { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+
+.cal-hero { background:var(--s1); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-bottom:10px; position:relative; overflow:hidden; }
+.cal-hero::after { content:''; position:absolute; top:-60px; right:-60px; width:200px; height:200px; background:radial-gradient(circle, rgba(200,241,53,.05) 0%, transparent 70%); pointer-events:none; }
+.cal-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+.cal-num { font-family:var(--FD); font-size:44px; color:var(--lime); line-height:1; }
+.cal-target { font-family:var(--FM); font-size:11px; color:var(--muted); }
+.cal-remain { font-size:11px; color:var(--muted); text-align:right; }
+.cal-track { height:7px; background:var(--s3); border-radius:4px; overflow:hidden; }
+.cal-fill { height:100%; width:0; background:linear-gradient(90deg,var(--lime),#a8d420); border-radius:4px; transition:width .4s ease; }
+.cal-fill.over { background:linear-gradient(90deg,var(--orange),var(--red)); }
+
+.macro-rings-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
+.macro-ring-tile { background:var(--s1); border:1px solid var(--border); border-radius:12px; padding:12px 6px; text-align:center; position:relative; }
+.macro-ring-tile.protein { border-color:rgba(200,241,53,.2); background:rgba(200,241,53,.03); }
+.mring-svg { display:block; margin:0 auto 5px; transform:rotate(-90deg); }
+.mring-svg circle.prog { transition:stroke-dashoffset .4s ease; }
+.mring-center { position:absolute; top:28px; left:0; right:0; text-align:center; pointer-events:none; }
+.mring-val { font-family:var(--FD); font-size:16px; line-height:1; }
+.mring-sub { font-size:8px; color:var(--muted); font-family:var(--FM); }
+.mring-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); }
+.mring-remain { font-family:var(--FM); font-size:9px; color:var(--muted); margin-top:2px; }
+.mring-remain.over { color:var(--orange); }
+
+/* Add food */
+.slot-pick { display:flex; gap:5px; margin-bottom:10px; overflow-x:auto; padding-bottom:2px; }
+.slot-pick::-webkit-scrollbar { display:none; }
+.slot-pick-btn {
+  padding:6px 12px; background:var(--s1); border:1px solid var(--border); border-radius:20px;
+  color:var(--muted); font-size:11px; font-weight:600; cursor:pointer; white-space:nowrap;
+  transition:all .15s; text-transform:uppercase; letter-spacing:0.06em;
+}
+.slot-pick-btn.active { background:var(--s2); border-color:var(--lime); color:var(--lime); }
+.food-name-row { margin-bottom:8px; }
+.add-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ai-btn {
+  background:var(--blue); border:none; color:#fff; font-size:14px; font-weight:700;
+  padding:14px; border-radius:12px; cursor:pointer; text-transform:uppercase; letter-spacing:0.1em;
+  transition:all .2s;
+}
+.ai-btn:hover { background:#6aabff; }
+.ai-btn:disabled { opacity:.5; cursor:default; }
+.ai-status { font-size:11px; margin-top:8px; min-height:14px; }
+.ai-status.ok { color:var(--lime); }
+.ai-status.err { color:var(--red); }
+.ai-status.thinking { color:var(--blue); }
+
+/* Food log */
+.food-log-section { background:var(--s1); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:8px; }
+.food-log-head { padding:10px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.food-log-meal-name { font-family:var(--FD); font-size:17px; letter-spacing:0.04em; }
+.food-log-window { font-family:var(--FM); font-size:10px; color:var(--muted); margin-left:8px; }
+.food-log-cals { font-family:var(--FM); font-size:11px; color:var(--lime); white-space:nowrap; }
+.food-log-item { display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid var(--border); gap:10px; }
+.food-log-item:last-child { border-bottom:none; }
+.fli-main { flex:1; min-width:0; }
+.fli-name { font-size:13px; font-weight:600; }
+.fli-macros { font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:2px; }
+.fli-cal { font-family:var(--FD); font-size:20px; color:var(--lime); }
+.fli-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:4px; transition:color .15s; }
+.fli-del:hover { color:var(--red); }
+.food-log-empty { padding:12px 14px; font-size:12px; color:var(--muted2); }
+
+/* Fasting */
+.fast-card { background:var(--s1); border:1px solid rgba(200,241,53,.2); border-radius:var(--radius); padding:24px 18px; margin-bottom:10px; text-align:center; position:relative; overflow:hidden; }
+.fast-card::after { content:''; position:absolute; top:-80px; left:50%; transform:translateX(-50%); width:260px; height:260px; background:radial-gradient(circle, rgba(200,241,53,.06) 0%, transparent 70%); pointer-events:none; }
+.fast-label { font-family:var(--FM); font-size:10px; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; }
+.fast-timer { font-family:var(--FD); font-size:72px; color:var(--lime); line-height:1; margin:8px 0 4px; letter-spacing:0.02em; }
+.fast-since { font-family:var(--FM); font-size:11px; color:var(--muted); margin-bottom:14px; }
+.fast-edit { display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; }
+.fast-edit input { width:auto; font-family:var(--FM); font-size:12px; color-scheme:dark; padding:8px 10px; }
+
+/* 7-day chart */
+.week-chart { display:flex; align-items:flex-end; gap:8px; height:160px; position:relative; padding-top:14px; }
+.wc-target { position:absolute; left:0; right:0; border-top:1px dashed var(--border2); pointer-events:none; }
+.wc-target span { position:absolute; right:0; top:-14px; font-family:var(--FM); font-size:9px; color:var(--muted); }
+.wc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+.wc-val { font-family:var(--FM); font-size:9px; color:var(--muted); margin-bottom:4px; }
+.wc-bar { width:100%; max-width:40px; background:var(--lime); border-radius:6px 6px 2px 2px; min-height:2px; transition:height .4s ease; opacity:.85; }
+.wc-bar.under { background:var(--s3); border:1px solid var(--border2); opacity:1; }
+.wc-bar.over { background:var(--orange); }
+.wc-bar.fast { background:transparent; border:1px dashed var(--border2); }
+.wc-days { display:flex; gap:8px; margin-top:6px; }
+.wc-day { flex:1; text-align:center; font-family:var(--FD); font-size:15px; color:var(--muted); letter-spacing:0.04em; }
+.wc-day.today { color:var(--lime); }
+.wc-legend { display:flex; gap:14px; margin-top:12px; font-size:10px; color:var(--muted); }
+.wc-legend i { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+
+/* ═══════════════════════════════ CHAT */
+.chat-fab {
+  position:fixed; right:18px; bottom:max(18px, env(safe-area-inset-bottom)); z-index:100;
+  height:52px; padding:0 20px; border-radius:26px; border:none;
+  background:var(--lime); color:#000; font-weight:700; font-size:13px; letter-spacing:0.1em; text-transform:uppercase;
+  box-shadow:0 8px 30px rgba(200,241,53,.25); cursor:pointer; display:flex; align-items:center; gap:8px;
+  transition:transform .15s;
+}
+.chat-fab:active { transform:scale(.96); }
+.chat-fab svg { width:18px; height:18px; }
+
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:200; display:none; align-items:flex-end; backdrop-filter:blur(4px); }
+.modal-overlay.open { display:flex; }
+.modal-sheet {
+  width:100%; max-width:680px; margin:0 auto; background:var(--s1);
+  border-radius:20px 20px 0 0; border-top:1px solid var(--border);
+  height:88dvh; display:flex; flex-direction:column; position:relative;
+  transition:transform .25s ease;
+}
+.sheet-top { padding:12px 18px 12px; border-bottom:1px solid var(--border); flex-shrink:0; touch-action:none; cursor:grab; }
+.modal-handle { width:36px; height:4px; background:var(--border2); border-radius:2px; margin:0 auto 12px; }
+.sheet-title-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.modal-title { font-family:var(--FD); font-size:28px; letter-spacing:0.04em; line-height:1; }
+.modal-title em { font-style:normal; color:var(--lime); }
+.sheet-sub { font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:4px; }
+.sheet-btns { display:flex; gap:6px; }
+.modal-close { background:var(--s2); border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:18px; width:32px; height:32px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.modal-close:hover { color:var(--text); }
+.clear-btn { font-size:10px; width:auto; padding:0 10px; text-transform:uppercase; letter-spacing:0.1em; font-weight:600; }
+
+.chat-body { flex:1; overflow-y:auto; padding:16px 18px; display:flex; flex-direction:column; gap:10px; overscroll-behavior:contain; }
+.msg { max-width:88%; font-size:14px; line-height:1.55; padding:10px 14px; border-radius:14px; word-wrap:break-word; }
+.msg.user { align-self:flex-end; background:var(--s3); border:1px solid var(--border2); border-bottom-right-radius:4px; }
+.msg.bot { align-self:flex-start; background:var(--s2); border:1px solid var(--border); border-bottom-left-radius:4px; }
+.msg.bot strong { color:var(--lime); font-weight:600; }
+.msg.bot ul { padding-left:18px; margin:4px 0; }
+.msg.bot p + p { margin-top:8px; }
+.msg.err { color:var(--red); }
+.msg.thinking { color:var(--blue); font-size:12px; }
+.log-card { display:flex; align-items:center; gap:10px; background:var(--s1); border:1px solid rgba(200,241,53,.2); border-radius:10px; padding:9px 10px 9px 12px; margin-top:8px; }
+.log-card .fli-main { min-width:0; }
+.log-btn { background:var(--lime); color:#000; border:none; border-radius:8px; padding:8px 12px; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; white-space:nowrap; }
+.log-btn.done { background:var(--s3); color:var(--lime); cursor:default; }
+.chat-empty { color:var(--muted); font-size:13px; text-align:center; margin:auto 0; line-height:1.7; }
+.quick-row { display:flex; gap:6px; overflow-x:auto; padding:0 18px 10px; flex-shrink:0; }
+.quick-row::-webkit-scrollbar { display:none; }
+.quick-row .chip { white-space:nowrap; font-size:11px; }
+.chat-input-row { display:flex; gap:8px; padding:12px 18px; padding-bottom:max(12px, env(safe-area-inset-bottom)); border-top:1px solid var(--border); flex-shrink:0; }
+.chat-input-row textarea { flex:1; resize:none; min-height:44px; max-height:120px; padding:11px 14px; }
+.send-btn { background:var(--lime); border:none; border-radius:10px; width:48px; color:#000; font-size:18px; font-weight:700; cursor:pointer; flex-shrink:0; }
+.send-btn:disabled { opacity:.5; }
+
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">MACRO<em>TRACK</em></div>
+  <button class="gear-btn" id="setupToggle">Setup</button>
+</div>
+
+<div class="panel">
+
+  <!-- ═══════════ SETUP ═══════════ -->
+  <div id="setup" class="hidden">
+    <div class="section-label first">Setup</div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Profile</div>
+      <div class="settings-field"><label>Name</label><input class="input-field" id="sName" placeholder="Your first name"></div>
+      <div class="settings-field"><label>Goal</label>
+        <div class="goal-row" id="goalRow"></div>
+      </div>
+      <div class="settings-field" style="margin-top:14px;"><label>Daily targets</label>
+        <div class="macro-inputs">
+          <div class="macro-input-field"><label>Cals</label><input type="number" inputmode="numeric" id="tCal" placeholder="2200"></div>
+          <div class="macro-input-field"><label>Protein</label><input type="number" inputmode="numeric" id="tP" placeholder="180"></div>
+          <div class="macro-input-field"><label>Carbs</label><input type="number" inputmode="numeric" id="tC" placeholder="200"></div>
+          <div class="macro-input-field"><label>Sugar</label><input type="number" inputmode="numeric" id="tS" placeholder="40"></div>
+          <div class="macro-input-field"><label>Fat</label><input type="number" inputmode="numeric" id="tF" placeholder="70"></div>
+        </div>
+      </div>
+      <div class="settings-field"><label>Anthropic API key</label><input class="input-field" id="sKey" type="password" placeholder="sk-ant-..." autocomplete="off" style="font-family:var(--FM);font-size:12px;"></div>
+      <div class="settings-section-sub" style="margin:0;">Stored only in this browser. Get one at console.anthropic.com → API Keys.</div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Meal Schedule</div>
+      <div class="settings-section-sub">Set meals per weekday. Today's slots load automatically. Names and time windows are optional.</div>
+      <div id="schedule"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Dietary Restrictions</div>
+      <div class="settings-section-sub">The coach never recommends anything that breaks these.</div>
+      <div class="chips" id="presetChips"></div>
+      <label class="mini-label">Custom</label>
+      <div class="chips" id="customChips"></div>
+      <div class="add-row">
+        <input class="input-field" id="customInput" placeholder="e.g. Dr. Heather's protocol, no seed oils">
+        <button class="btn-secondary" id="customAdd">Add</button>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="saveSetup">Save setup</button>
+    <div class="settings-status" id="setupStatus"></div>
+  </div>
+
+  <!-- ═══════════ TODAY ═══════════ -->
+  <div id="today">
+    <div class="section-label" id="todayLabel">Today</div>
+    <div class="today-date" id="todayDate"></div>
+    <div class="today-title" id="todayTitle"></div>
+    <div class="today-pills" id="todayPills"></div>
+
+    <div class="cal-hero">
+      <div class="cal-top">
+        <div><span class="cal-num" id="calNum">0</span> <span class="cal-target" id="calTarget">/ 0 kcal</span></div>
+        <div class="cal-remain" id="calRemain"></div>
+      </div>
+      <div class="cal-track"><div class="cal-fill" id="calFill"></div></div>
+    </div>
+
+    <div class="macro-rings-row" id="rings"></div>
+
+    <!-- Fasting -->
+    <div id="fastView" class="hidden">
+      <div class="fast-card">
+        <div class="fast-label">Fasting day · time since last meal</div>
+        <div class="fast-timer" id="fastTimer">00:00:00</div>
+        <div class="fast-since" id="fastSince"></div>
+        <div class="fast-edit">
+          <input class="input-field" type="datetime-local" id="fastStart">
+          <button class="btn-secondary" id="fastReset">Use last logged</button>
+        </div>
+      </div>
+      <div class="card">
+        <label class="mini-label">Fasting note</label>
+        <textarea class="input-field" id="fastNote" placeholder="How are you feeling? Hunger, energy, electrolytes..."></textarea>
+      </div>
+    </div>
+
+    <!-- Food -->
+    <div id="foodView">
+      <div class="section-label">Add food</div>
+      <div class="card">
+        <div class="slot-pick" id="slotPick"></div>
+        <div class="food-name-row"><input class="input-field" id="fName" placeholder="Food name or description — e.g. 6oz ribeye + 1 cup rice"></div>
+        <div class="macro-inputs">
+          <div class="macro-input-field"><label>Cals</label><input type="number" inputmode="decimal" id="fCal" placeholder="0"></div>
+          <div class="macro-input-field"><label>Protein</label><input type="number" inputmode="decimal" id="fP" placeholder="0"></div>
+          <div class="macro-input-field"><label>Carbs</label><input type="number" inputmode="decimal" id="fC" placeholder="0"></div>
+          <div class="macro-input-field"><label>Sugar</label><input type="number" inputmode="decimal" id="fS" placeholder="0"></div>
+          <div class="macro-input-field"><label>Fat</label><input type="number" inputmode="decimal" id="fF" placeholder="0"></div>
+        </div>
+        <div class="add-actions">
+          <button class="ai-btn" id="askAi">Ask AI</button>
+          <button class="btn-primary" id="addFood">Add</button>
+        </div>
+        <div class="ai-status" id="aiStatus"></div>
+      </div>
+
+      <div class="section-label">Food log</div>
+      <div id="foodLog"></div>
+    </div>
+
+    <div class="section-label">Last 7 days</div>
+    <div class="card">
+      <div class="week-chart" id="weekChart"></div>
+      <div class="wc-days" id="weekDays"></div>
+      <div class="wc-legend">
+        <span><i style="background:var(--lime)"></i>Within 10%</span>
+        <span><i style="background:var(--s3);border:1px solid var(--border2)"></i>Under</span>
+        <span><i style="background:var(--orange)"></i>Over</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CHAT ═══════════ -->
+<button class="chat-fab" id="chatFab">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  Coach
+</button>
+
+<div class="modal-overlay" id="chatOverlay">
+  <div class="modal-sheet" id="chatSheet">
+    <div class="sheet-top" id="sheetTop">
+      <div class="modal-handle"></div>
+      <div class="sheet-title-row">
+        <div>
+          <div class="modal-title">MACRO <em>COACH</em></div>
+          <div class="sheet-sub" id="chatSub"></div>
+        </div>
+        <div class="sheet-btns">
+          <button class="modal-close clear-btn" id="chatClear">Clear</button>
+          <button class="modal-close" id="chatClose" aria-label="Close">✕</button>
+        </div>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="quick-row" id="quickRow"></div>
+    <div class="chat-input-row">
+      <textarea class="input-field" id="chatInput" rows="1" placeholder="What should I eat next?"></textarea>
+      <button class="send-btn" id="chatSend">↑</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════ CONSTANTS */
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const GOALS = ['Lose Fat','Build Muscle','Recomp','Maintain'];
+const PRESETS = ['Gluten Free','Dairy Free','Vegetarian','Vegan','Carnivore','Keto','Paleo','No Pork','No Shellfish','Low FODMAP','Nut Allergy'];
+const MACROS = [
+  { k:'p', label:'Protein', color:'#c8f135' },
+  { k:'c', label:'Carbs',   color:'#4da6ff' },
+  { k:'s', label:'Sugar',   color:'#b98cff' },
+  { k:'f', label:'Fat',     color:'#ff7a3d' },
+];
+const CHAT_MODEL = 'claude-sonnet-5';
+const FILL_MODEL = 'claude-haiku-4-5-20251001';
+const RING_C = 2 * Math.PI * 23;
+
+/* ═══════════════════════════════ STORAGE */
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const defaultSettings = () => ({
+  name:'', goal:'Recomp', targets:{ cal:2200, p:180, c:200, s:40, f:70 }, apiKey:'',
+  schedule: DAYS.map(() => ({ count:3, slots:[] })),
+  presets:[], custom:[],
+});
+let S = Object.assign(defaultSettings(), store.get('mt_settings', {}));
+const dateKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
+const dayIdx = d => (new Date(d).getDay() + 6) % 7; // Monday = 0
+const loadDay = k => store.get('mt_log_' + k, { items:[], note:'', fastStart:null });
+const saveDay = (k, v) => store.set('mt_log_' + k, v);
+
+let todayKey = dateKey(new Date());
+let day = loadDay(todayKey);
+let activeSlot = null;
+
+/* ═══════════════════════════════ HELPERS */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+const r0 = v => Math.round(v);
+const r1 = v => Math.round(v * 10) / 10;
+const fmtTime = t => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2,'0') : ''}${h < 12 ? 'am' : 'pm'}`; };
+const totals = items => items.reduce((a, i) => ({ cal:a.cal+n(i.cal), p:a.p+n(i.p), c:a.c+n(i.c), s:a.s+n(i.s), f:a.f+n(i.f) }), { cal:0, p:0, c:0, s:0, f:0 });
+
+function todaySchedule() {
+  const d = S.schedule[dayIdx(new Date())] || { count:3, slots:[] };
+  const slots = [];
+  for (let i = 0; i < d.count; i++) {
+    const s = d.slots[i] || {};
+    slots.push({ name: (s.name || '').trim() || `Meal ${i+1}`, start: s.start || '', end: s.end || '' });
+  }
+  return { count: d.count, slots };
+}
+const slotWindow = s => s.start && s.end ? `${fmtTime(s.start)}–${fmtTime(s.end)}` : s.start ? `from ${fmtTime(s.start)}` : s.end ? `by ${fmtTime(s.end)}` : '';
+const itemSlot = (it, count) => Math.min(Math.max(0, it.slot | 0), count - 1);
+
+/* ═══════════════════════════════ SETUP UI */
+function renderSetup() {
+  $('sName').value = S.name;
+  $('sKey').value = S.apiKey;
+  $('tCal').value = S.targets.cal; $('tP').value = S.targets.p; $('tC').value = S.targets.c; $('tS').value = S.targets.s; $('tF').value = S.targets.f;
+  $('goalRow').innerHTML = GOALS.map(g => `<button class="goal-btn ${S.goal === g ? 'active' : ''}" data-goal="${g}">${g}</button>`).join('');
+  renderSchedule();
+  renderRestrictions();
+}
+
+function renderSchedule() {
+  const ti = dayIdx(new Date());
+  $('schedule').innerHTML = DAYS.map((name, i) => {
+    const d = S.schedule[i];
+    const opts = [0,1,2,3,4,5].map(c => `<option value="${c}" ${d.count === c ? 'selected' : ''}>${c === 0 ? 'Fasting Day' : c === 1 ? '1 Meal' : c + ' Meals'}</option>`).join('');
+    let body = '';
+    if (d.count === 0) body = `<div class="fast-note">Fasting day — the log is replaced with a fasting timer.</div>`;
+    else {
+      body = `<div class="slot-head"><span></span><span>Name</span><span>Start</span><span>End</span></div>`;
+      for (let s = 0; s < d.count; s++) {
+        const sl = d.slots[s] || {};
+        body += `<div class="slot-row">
+          <div class="slot-n">${s+1}</div>
+          <input class="input-field" data-d="${i}" data-s="${s}" data-f="name" value="${esc(sl.name)}" placeholder="Meal ${s+1}">
+          <input class="input-field" type="time" data-d="${i}" data-s="${s}" data-f="start" value="${esc(sl.start)}">
+          <input class="input-field" type="time" data-d="${i}" data-s="${s}" data-f="end" value="${esc(sl.end)}">
+        </div>`;
+      }
+    }
+    body += `<div class="copy-row"><button class="link-btn" data-copy="${i}">Copy ${name.slice(0,3)} to all days</button></div>`;
+    return `<div class="day-acc ${i === ti ? 'today' : ''} ${openDays.has(i) ? 'open' : ''}" data-day="${i}">
+      <div class="day-acc-head">
+        <div class="day-acc-name" data-toggle="${i}">${name.slice(0,3).toUpperCase()}</div>
+        <select class="input-field" data-count="${i}">${opts}</select>
+        <button class="day-acc-chev" data-toggle="${i}">▼</button>
+      </div>
+      <div class="day-acc-body">${body}</div>
+    </div>`;
+  }).join('');
+}
+const openDays = new Set([dayIdx(new Date())]);
+
+function renderRestrictions() {
+  $('presetChips').innerHTML = PRESETS.map(p => `<button class="chip ${S.presets.includes(p) ? 'active' : ''}" data-preset="${esc(p)}">${esc(p)}</button>`).join('');
+  $('customChips').innerHTML = S.custom.length
+    ? S.custom.map((c, i) => `<span class="chip active">${esc(c)}<span class="x" data-rmcustom="${i}">✕</span></span>`).join('')
+    : `<span class="fast-note" style="padding:0;">None yet.</span>`;
+}
+
+$('goalRow').onclick = e => { const b = e.target.closest('[data-goal]'); if (!b) return; S.goal = b.dataset.goal; renderSetup(); };
+$('schedule').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.count != null) { const i = +t.dataset.count; S.schedule[i].count = +t.value; openDays.add(i); renderSchedule(); }
+});
+$('schedule').addEventListener('input', e => {
+  const t = e.target; if (t.dataset.d == null) return;
+  const d = S.schedule[+t.dataset.d]; const s = +t.dataset.s;
+  d.slots[s] = Object.assign({}, d.slots[s], { [t.dataset.f]: t.value });
+});
+$('schedule').addEventListener('click', e => {
+  const tg = e.target.closest('[data-toggle]');
+  if (tg) { const i = +tg.dataset.toggle; openDays.has(i) ? openDays.delete(i) : openDays.add(i); renderSchedule(); return; }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { const src = S.schedule[+cp.dataset.copy]; S.schedule = DAYS.map(() => JSON.parse(JSON.stringify(src))); renderSchedule(); }
+});
+$('presetChips').onclick = e => {
+  const b = e.target.closest('[data-preset]'); if (!b) return;
+  const p = b.dataset.preset;
+  S.presets = S.presets.includes(p) ? S.presets.filter(x => x !== p) : [...S.presets, p];
+  renderRestrictions();
+};
+$('customChips').onclick = e => { const x = e.target.closest('[data-rmcustom]'); if (!x) return; S.custom.splice(+x.dataset.rmcustom, 1); renderRestrictions(); };
+function addCustom() { const v = $('customInput').value.trim(); if (!v) return; S.custom.push(v); $('customInput').value = ''; renderRestrictions(); }
+$('customAdd').onclick = addCustom;
+$('customInput').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } };
+
+$('saveSetup').onclick = () => {
+  const pending = $('customInput').value.trim(); if (pending) addCustom();
+  S.name = $('sName').value.trim();
+  S.apiKey = $('sKey').value.trim();
+  S.targets = { cal:n($('tCal').value), p:n($('tP').value), c:n($('tC').value), s:n($('tS').value), f:n($('tF').value) };
+  store.set('mt_settings', S);
+  store.set('mt_setup_done', true);
+  $('setupStatus').className = 'settings-status ok';
+  $('setupStatus').textContent = 'Saved.';
+  setTimeout(() => { toggleSetup(false); $('setupStatus').textContent = ''; }, 500);
+  activeSlot = null;
+  renderToday();
+};
+
+function toggleSetup(show) {
+  const on = show ?? $('setup').classList.contains('hidden');
+  if (!on) { S = Object.assign(defaultSettings(), store.get('mt_settings', {})); } // discard unsaved edits
+  $('setup').classList.toggle('hidden', !on);
+  $('setupToggle').classList.toggle('on', on);
+  $('setupToggle').textContent = on ? 'Close' : 'Setup';
+  $('todayLabel').classList.toggle('first', !on);
+  if (on) { renderSetup(); window.scrollTo({ top:0, behavior:'smooth' }); }
+}
+$('setupToggle').onclick = () => toggleSetup();
+
+/* ═══════════════════════════════ TODAY UI */
+function ringHTML(m, val, target) {
+  const pct = target > 0 ? Math.min(val / target, 1) : 0;
+  const left = target - val;
+  return `<div class="macro-ring-tile ${m.k === 'p' ? 'protein' : ''}">
+    <svg class="mring-svg" width="64" height="64" viewBox="0 0 58 58"><circle cx="29" cy="29" r="23" fill="none" stroke="#222" stroke-width="6"/><circle class="prog" cx="29" cy="29" r="23" fill="none" stroke="${m.color}" stroke-width="6" stroke-dasharray="${RING_C}" stroke-dashoffset="${RING_C * (1 - pct)}" stroke-linecap="round"/></svg>
+    <div class="mring-center"><div class="mring-val" style="color:${m.color}">${r0(val)}</div><div class="mring-sub">/${r0(target)}g</div></div>
+    <div class="mring-label">${m.label}</div>
+    <div class="mring-remain ${left < 0 ? 'over' : ''}">${left >= 0 ? r0(left) + 'g left' : r0(-left) + 'g over'}</div>
+  </div>`;
+}
+
+function renderToday() {
+  const now = new Date();
+  const k = dateKey(now);
+  if (k !== todayKey) { todayKey = k; day = loadDay(k); activeSlot = null; }
+  const sch = todaySchedule();
+  const fasting = sch.count === 0;
+  const t = totals(day.items);
+  const T = S.targets;
+
+  $('todayDate').textContent = now.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+  $('todayTitle').innerHTML = S.name ? `Hey <em>${esc(S.name)}</em>` : `<em>Today</em>`;
+  const restr = [...S.presets, ...S.custom];
+  const eatenSlots = new Set(day.items.map(i => itemSlot(i, sch.count)));
+  $('todayPills').innerHTML =
+    `<span class="pill pill-lime">${esc(S.goal)}</span>` +
+    (fasting ? `<span class="pill pill-orange">Fasting day</span>` : `<span class="pill pill-blue">${eatenSlots.size}/${sch.count} meals</span>`) +
+    restr.slice(0, 4).map(r => `<span class="pill" style="border:1px solid var(--border);color:var(--muted)">${esc(r)}</span>`).join('') +
+    (restr.length > 4 ? `<span class="pill" style="border:1px solid var(--border);color:var(--muted)">+${restr.length - 4}</span>` : '');
+
+  $('calNum').textContent = r0(t.cal);
+  $('calTarget').textContent = `/ ${r0(T.cal)} kcal`;
+  const calLeft = T.cal - t.cal;
+  $('calRemain').textContent = calLeft >= 0 ? `${r0(calLeft)} left` : `${r0(-calLeft)} over`;
+  $('calFill').style.width = (T.cal > 0 ? Math.min(t.cal / T.cal, 1) * 100 : 0) + '%';
+  $('calFill').classList.toggle('over', calLeft < 0);
+  $('rings').innerHTML = MACROS.map(m => ringHTML(m, t[m.k], T[m.k])).join('');
+
+  $('fastView').classList.toggle('hidden', !fasting);
+  $('foodView').classList.toggle('hidden', fasting);
+  if (fasting) { $('fastNote').value = day.note || ''; tickFast(); }
+  else renderFood(sch);
+  renderWeek();
+}
+
+function defaultSlot(sch) {
+  const now = new Date(); const hm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const inWin = sch.slots.findIndex(s => s.start && s.end && hm >= s.start && hm <= s.end);
+  if (inWin >= 0) return inWin;
+  const used = new Set(day.items.map(i => itemSlot(i, sch.count)));
+  const next = sch.slots.findIndex((_, i) => !used.has(i));
+  return next >= 0 ? next : sch.count - 1;
+}
+
+function renderFood(sch) {
+  if (activeSlot == null || activeSlot >= sch.count) activeSlot = defaultSlot(sch);
+  $('slotPick').innerHTML = sch.slots.map((s, i) => `<button class="slot-pick-btn ${i === activeSlot ? 'active' : ''}" data-slot="${i}">${esc(s.name)}</button>`).join('');
+  $('foodLog').innerHTML = sch.slots.map((s, i) => {
+    const items = day.items.map((it, idx) => ({ it, idx })).filter(x => itemSlot(x.it, sch.count) === i);
+    const st = totals(items.map(x => x.it));
+    return `<div class="food-log-section">
+      <div class="food-log-head">
+        <div><span class="food-log-meal-name">${esc(s.name)}</span><span class="food-log-window">${slotWindow(s)}</span></div>
+        <span class="food-log-cals">${items.length ? r0(st.cal) + ' kcal · ' + r0(st.p) + 'P' : ''}</span>
+      </div>
+      ${items.length ? items.map(({ it, idx }) => `<div class="food-log-item">
+        <div class="fli-main"><div class="fli-name">${esc(it.name)}</div>
+        <div class="fli-macros">P ${r1(n(it.p))} · C ${r1(n(it.c))} · S ${r1(n(it.s))} · F ${r1(n(it.f))}</div></div>
+        <div class="fli-cal">${r0(n(it.cal))}</div>
+        <button class="fli-del" data-del="${idx}" aria-label="Delete">✕</button>
+      </div>`).join('') : `<div class="food-log-empty">Nothing logged</div>`}
+    </div>`;
+  }).join('');
+}
+
+$('slotPick').onclick = e => { const b = e.target.closest('[data-slot]'); if (!b) return; activeSlot = +b.dataset.slot; renderFood(todaySchedule()); };
+$('foodLog').onclick = e => { const b = e.target.closest('[data-del]'); if (!b) return; day.items.splice(+b.dataset.del, 1); saveDay(todayKey, day); renderToday(); };
+
+function logItem(item, slot) {
+  const sch = todaySchedule();
+  day.items.push({
+    name: item.name || 'Food', cal:r1(n(item.cal)), p:r1(n(item.p)), c:r1(n(item.c)), s:r1(n(item.s)), f:r1(n(item.f)),
+    slot: sch.count ? Math.min(slot ?? activeSlot ?? defaultSlot(sch), sch.count - 1) : 0, ts: Date.now(),
+  });
+  saveDay(todayKey, day);
+  renderToday();
+}
+
+$('addFood').onclick = () => {
+  const name = $('fName').value.trim();
+  const vals = ['fCal','fP','fC','fS','fF'].map(id => $(id).value);
+  if (!name && vals.every(v => !v)) { setAi('Enter a food name or macros.', 'err'); return; }
+  logItem({ name: name || 'Quick add', cal:vals[0], p:vals[1], c:vals[2], s:vals[3], f:vals[4] });
+  ['fName','fCal','fP','fC','fS','fF'].forEach(id => $(id).value = '');
+  setAi('Added.', 'ok');
+};
+$('fName').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('askAi').click(); } };
+
+function setAi(msg, cls) { $('aiStatus').textContent = msg; $('aiStatus').className = 'ai-status ' + (cls || ''); }
+
+/* ═══════════════════════════════ ANTHROPIC */
+async function callClaude({ model, system, messages, max_tokens }) {
+  if (!S.apiKey) throw new Error('Add your Anthropic API key in Setup.');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'x-api-key':S.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model, max_tokens, system, messages }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `API error ${res.status}`);
+  return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+}
+
+$('askAi').onclick = async () => {
+  const q = $('fName').value.trim();
+  if (!q) { setAi('Describe the food first — e.g. "2 eggs scrambled in butter".', 'err'); return; }
+  $('askAi').disabled = true; setAi('Estimating macros…', 'thinking');
+  try {
+    const txt = await callClaude({
+      model: FILL_MODEL, max_tokens: 300,
+      system: 'You are a nutrition database. Estimate macros for the described food and portion (assume a typical serving if unspecified). Return ONLY a JSON object, no markdown: {"name":"short clean name","calories":0,"protein":0,"carbs":0,"sugar":0,"fat":0}. Grams, rounded to 1 decimal.',
+      messages: [{ role:'user', content: q }],
+    });
+    const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+    $('fName').value = j.name || q;
+    $('fCal').value = r0(n(j.calories)); $('fP').value = r1(n(j.protein)); $('fC').value = r1(n(j.carbs)); $('fS').value = r1(n(j.sugar)); $('fF').value = r1(n(j.fat));
+    setAi('Filled — check it, then Add.', 'ok');
+  } catch (err) { setAi(err.message, 'err'); }
+  $('askAi').disabled = false;
+};
+
+/* ═══════════════════════════════ FASTING */
+function lastMealTs() {
+  let best = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const items = loadDay(dateKey(d)).items;
+    for (const it of items) if (it.ts > best) best = it.ts;
+    if (best) break;
+  }
+  return best || null;
+}
+const fastStartTs = () => day.fastStart || lastMealTs();
+function tickFast() {
+  if ($('fastView').classList.contains('hidden')) return;
+  const start = fastStartTs();
+  if (!start) { $('fastTimer').textContent = '--:--:--'; $('fastSince').textContent = 'No meal logged yet — set your last meal time.'; return; }
+  const sec = Math.max(0, Math.floor((Date.now() - start) / 1000));
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  $('fastTimer').textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  $('fastSince').textContent = 'Since ' + new Date(start).toLocaleString(undefined, { weekday:'short', hour:'numeric', minute:'2-digit' });
+  const loc = new Date(start - new Date(start).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  if (document.activeElement !== $('fastStart')) $('fastStart').value = loc;
+}
+setInterval(() => { if (dateKey(new Date()) !== todayKey) renderToday(); else tickFast(); }, 1000);
+$('fastStart').onchange = e => { const t = new Date(e.target.value).getTime(); if (isFinite(t)) { day.fastStart = t; saveDay(todayKey, day); tickFast(); } };
+$('fastReset').onclick = () => { day.fastStart = null; saveDay(todayKey, day); tickFast(); };
+$('fastNote').oninput = e => { day.note = e.target.value; saveDay(todayKey, day); };
+
+/* ═══════════════════════════════ 7-DAY CHART */
+function renderWeek() {
+  const T = S.targets.cal || 1;
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = dateKey(d);
+    const log = k === todayKey ? day : loadDay(k);
+    days.push({ d, k, cal: totals(log.items).cal, fast: (S.schedule[dayIdx(d)] || {}).count === 0 && !log.items.length });
+  }
+  const max = Math.max(T * 1.15, ...days.map(x => x.cal)) || 1;
+  const H = 146;
+  $('weekChart').innerHTML = `<div class="wc-target" style="bottom:${(T / max) * H}px"><span>${r0(T)}</span></div>` +
+    days.map(x => {
+      const ratio = x.cal / T;
+      const cls = x.fast ? 'fast' : ratio > 1.1 ? 'over' : ratio >= 0.9 ? '' : 'under';
+      const h = x.fast ? 12 : Math.max(2, (x.cal / max) * H - 16);
+      return `<div class="wc-col"><div class="wc-val">${x.fast ? 'fast' : x.cal ? r0(x.cal) : ''}</div><div class="wc-bar ${cls}" style="height:${h}px" title="${x.k}: ${r0(x.cal)} kcal"></div></div>`;
+    }).join('');
+  $('weekDays').innerHTML = days.map(x => `<div class="wc-day ${x.k === todayKey ? 'today' : ''}">${x.d.toLocaleDateString(undefined, { weekday:'short' }).slice(0, 3).toUpperCase()}</div>`).join('');
+}
+
+/* ═══════════════════════════════ COACH CHAT */
+let chat = store.get('mt_chat', []);
+let chatBusy = false;
+
+function buildSystem() {
+  const now = new Date();
+  const sch = todaySchedule();
+  const T = S.targets;
+  const t = totals(day.items);
+  const hm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const restr = [...S.presets, ...S.custom];
+  const slotLines = sch.slots.map((s, i) => {
+    const items = day.items.filter(it => itemSlot(it, sch.count) === i);
+    const st = totals(items);
+    const passed = s.end && hm > s.end;
+    const status = items.length ? `EATEN (${r0(st.cal)} kcal, ${r0(st.p)}P/${r0(st.c)}C/${r0(st.s)}S/${r0(st.f)}F): ${items.map(it => it.name).join(', ')}` : (passed ? 'not logged, window has passed' : 'NOT YET EATEN');
+    return `  ${i+1}. ${s.name}${slotWindow(s) ? ' [' + slotWindow(s) + ']' : ''} — ${status}`;
+  }).join('\n');
+  const eatenSlots = new Set(day.items.map(i => itemSlot(i, sch.count)));
+  const mealsLeft = sch.count - eatenSlots.size;
+  const rem = k => r0(T[k] - t[k]);
+  const weekPlan = DAYS.map((d, i) => `${d.slice(0,3)}: ${S.schedule[i].count === 0 ? 'fasting' : S.schedule[i].count + ' meals'}`).join(', ');
+
+  return `You are a sharp, supportive nutrition coach inside ${S.name ? S.name + "'s" : 'the user\'s'} macro tracker. Be concise and practical — short paragraphs or tight bullet lists, no fluff.
+
+USER
+- Name: ${S.name || 'unknown'}
+- Goal: ${S.goal}
+- Daily targets: ${T.cal} kcal · protein ${T.p}g · carbs ${T.c}g · sugar ${T.s}g (treat as a cap) · fat ${T.f}g
+
+DIETARY RESTRICTIONS (HARD RULES)
+${restr.length ? restr.map(r => '- ' + r).join('\n') : '- none set'}
+Never recommend any food, dish, ingredient, or restaurant item that violates any restriction above — interpret each restriction by its standard definition (e.g. Gluten Free excludes wheat, barley, rye, most bread/pasta/breaded/fried-in-shared-fryer items, soy sauce, many sauces and gravies; Low FODMAP excludes garlic, onion, etc.). For custom protocols (like a named doctor's protocol), apply your best understanding and, if unsure what it allows, ask. When suggesting restaurant orders, filter every item through these restrictions, name specific modifications to request, and flag hidden risks (cross-contamination, marinades, sauces, dressings, cooking oils, breading, thickeners). If a request conflicts with a restriction, say so and offer a compliant alternative.
+
+TODAY — ${now.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' })}, current time ${now.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })}
+${sch.count === 0
+  ? `- FASTING DAY. Last meal: ${fastStartTs() ? new Date(fastStartTs()).toLocaleString() : 'unknown'}. Support the fast (hydration, electrolytes, hunger management) and don't suggest eating today unless the user asks or reports feeling unwell. ${day.note ? 'Their fasting note: "' + day.note + '"' : ''}`
+  : `- Meal schedule (${sch.count} meals):\n${slotLines}\n- Meals remaining today: ${mealsLeft}`}
+- Eaten so far: ${r0(t.cal)} kcal · P ${r0(t.p)}g · C ${r0(t.c)}g · S ${r0(t.s)}g · F ${r0(t.f)}g
+- Remaining: ${rem('cal')} kcal · P ${rem('p')}g · C ${rem('c')}g · S ${rem('s')}g · F ${rem('f')}g (negative = over)
+- Weekly schedule: ${weekPlan}
+
+COACHING
+- Plan the rest of the day around the remaining macros AND the remaining meal count/time windows — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
+- Recommend specific foods and portions, not categories.
+- Whenever you suggest a specific food or meal the user could eat, append one log block per item on its own lines, exactly in this format (valid JSON, numbers only, sugar included):
+<log>{"name":"6oz grilled chicken breast","cal":280,"p":52,"c":0,"s":0,"f":6,"meal":"Meal 2"}</log>
+  "meal" must be the name of one of today's remaining meal slots. Do not mention the log blocks in your prose — the app turns them into one-tap log buttons.`;
+}
+
+function mdLite(s) {
+  const lines = esc(s).split('\n');
+  let html = '', inList = false;
+  for (const raw of lines) {
+    const l = raw.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*(?!\s)(.+?)\*/g, '$1<em>$2</em>');
+    const li = l.match(/^\s*(?:[-•*]|\d+\.)\s+(.*)/);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${li[1]}</li>`; continue; }
+    if (inList) { html += '</ul>'; inList = false; }
+    if (l.trim()) html += `<p>${l.replace(/^#+\s*/, '')}</p>`;
+  }
+  return html + (inList ? '</ul>' : '');
+}
+
+function parseBot(text) {
+  const logs = [];
+  const prose = text.replace(/<log>([\s\S]*?)<\/log>/g, (_, j) => { try { logs.push(JSON.parse(j)); } catch {} return ''; }).trim();
+  return { prose, logs };
+}
+
+function renderChat() {
+  const body = $('chatBody');
+  if (!chat.length) {
+    body.innerHTML = `<div class="chat-empty">Ask what to eat next, what to order at a restaurant,<br>or how to hit your protein with ${todaySchedule().count || 'no'} meal${todaySchedule().count === 1 ? '' : 's'} today.</div>`;
+  } else {
+    body.innerHTML = chat.map((m, mi) => {
+      if (m.role === 'user') return `<div class="msg user">${esc(m.content).replace(/\n/g, '<br>')}</div>`;
+      const { prose, logs } = parseBot(m.content);
+      return `<div class="msg bot">${mdLite(prose)}${logs.map((l, li) => {
+        const done = (m.logged || []).includes(li);
+        return `<div class="log-card"><div class="fli-main"><div class="fli-name">${esc(l.name)}</div>
+          <div class="fli-macros">${r0(n(l.cal))} kcal · P ${r1(n(l.p))} · C ${r1(n(l.c))} · S ${r1(n(l.s))} · F ${r1(n(l.f))}${l.meal ? ' · ' + esc(l.meal) : ''}</div></div>
+          <button class="log-btn ${done ? 'done' : ''}" data-log="${mi}:${li}">${done ? '✓ Logged' : '+ Log'}</button></div>`;
+      }).join('')}</div>`;
+    }).join('');
+  }
+  if (chatBusy) body.innerHTML += `<div class="msg bot thinking">Thinking…</div>`;
+  body.scrollTop = body.scrollHeight;
+
+  const sch = todaySchedule(); const T = S.targets; const t = totals(day.items);
+  $('chatSub').textContent = sch.count === 0 ? 'Fasting day' :
+    `${r0(T.cal - t.cal)} kcal · ${r0(T.p - t.p)}g protein left · ${sch.count - new Set(day.items.map(i => itemSlot(i, sch.count))).size} meals to go`;
+  const quick = sch.count === 0
+    ? ['How do I get through the hunger?', 'Electrolytes for today?', 'Plan my break-fast meal for tomorrow']
+    : ['What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
+  $('quickRow').innerHTML = quick.map(q => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('');
+}
+
+async function sendChat(text) {
+  text = (text || '').trim();
+  if (!text || chatBusy) return;
+  chat.push({ role:'user', content:text });
+  $('chatInput').value = ''; autoGrow();
+  chatBusy = true; $('chatSend').disabled = true; renderChat();
+  try {
+    const history = chat.slice(-30).map(m => ({ role:m.role, content:m.content }));
+    while (history.length && history[0].role !== 'user') history.shift();
+    const reply = await callClaude({ model:CHAT_MODEL, max_tokens:1500, system:buildSystem(), messages:history });
+    chat.push({ role:'assistant', content: reply || '…', logged:[] });
+  } catch (err) {
+    chat.pop();
+    chatBusy = false; $('chatSend').disabled = false; renderChat();
+    $('chatBody').innerHTML += `<div class="msg bot err">${esc(err.message)}</div>`;
+    $('chatInput').value = text;
+    return;
+  }
+  chatBusy = false; $('chatSend').disabled = false;
+  store.set('mt_chat', chat);
+  renderChat();
+}
+
+$('chatBody').onclick = e => {
+  const b = e.target.closest('[data-log]'); if (!b || b.classList.contains('done')) return;
+  const [mi, li] = b.dataset.log.split(':').map(Number);
+  const msg = chat[mi]; const l = parseBot(msg.content).logs[li];
+  const sch = todaySchedule();
+  const slot = sch.slots.findIndex(s => s.name.toLowerCase() === String(l.meal || '').toLowerCase());
+  logItem(l, slot >= 0 ? slot : undefined);
+  msg.logged = [...(msg.logged || []), li];
+  store.set('mt_chat', chat);
+  renderChat();
+};
+$('quickRow').onclick = e => { const b = e.target.closest('[data-q]'); if (b) sendChat(b.dataset.q); };
+$('chatSend').onclick = () => sendChat($('chatInput').value);
+$('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat($('chatInput').value); } };
+function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
+$('chatInput').oninput = autoGrow;
+$('chatClear').onclick = () => { chat = []; store.set('mt_chat', chat); renderChat(); };
+
+function openChat() { $('chatOverlay').classList.add('open'); $('chatSheet').style.transform = ''; renderChat(); document.body.style.overflow = 'hidden'; }
+function closeChat() { $('chatOverlay').classList.remove('open'); document.body.style.overflow = ''; }
+$('chatFab').onclick = openChat;
+$('chatClose').onclick = closeChat;
+$('chatOverlay').onclick = e => { if (e.target === $('chatOverlay')) closeChat(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('chatOverlay').classList.contains('open')) closeChat(); });
+
+// Swipe down to close: drag the header anywhere, or the body when it's scrolled to the top
+(() => {
+  const sheet = $('chatSheet'); let y0 = null, dy = 0, fromBody = false;
+  const start = (e, body) => {
+    if (e.target.closest('button')) return;
+    if (body && $('chatBody').scrollTop > 0) return;
+    y0 = e.touches[0].clientY; dy = 0; fromBody = body; sheet.style.transition = 'none';
+  };
+  const move = e => {
+    if (y0 == null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0) { if (fromBody) y0 = null; sheet.style.transform = ''; return; }
+    if (fromBody) e.preventDefault();
+    sheet.style.transform = `translateY(${dy}px)`;
+  };
+  const end = () => {
+    if (y0 == null) return; y0 = null; sheet.style.transition = '';
+    if (dy > 90) { sheet.style.transform = 'translateY(100%)'; setTimeout(closeChat, 200); }
+    else sheet.style.transform = '';
+  };
+  $('sheetTop').addEventListener('touchstart', e => start(e, false), { passive:true });
+  $('chatBody').addEventListener('touchstart', e => start(e, true), { passive:true });
+  sheet.addEventListener('touchmove', move, { passive:false });
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', end);
+})();
+
+/* ═══════════════════════════════ INIT */
+renderToday();
+if (!store.get('mt_setup_done', false)) toggleSetup(true);
+</script>
+</body>
+</html>
