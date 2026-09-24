@@ -312,6 +312,14 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .chat-input-row textarea { flex:1; resize:none; min-height:44px; max-height:120px; padding:11px 14px; }
 .send-btn { background:var(--lime); border:none; border-radius:10px; width:48px; color:#000; font-size:18px; font-weight:700; cursor:pointer; flex-shrink:0; }
 .send-btn:disabled { opacity:.5; }
+.photo-btn { background:var(--s2); border:1px solid var(--border); border-radius:10px; width:48px; color:var(--muted); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+.photo-btn:hover { border-color:var(--lime); color:var(--lime); }
+.photo-btn svg { width:20px; height:20px; }
+.photo-preview { display:flex; align-items:center; gap:10px; padding:10px 18px 0; flex-shrink:0; }
+.photo-preview img { width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid var(--border2); }
+.photo-preview span { flex:1; font-size:12px; color:var(--muted); }
+.msg-img { display:block; max-width:180px; max-height:220px; border-radius:8px; margin-bottom:6px; }
+.msg-img-tag { display:block; font-family:var(--FM); font-size:10px; color:var(--muted); margin-bottom:4px; }
 
 .hidden { display:none !important; }
 
@@ -469,7 +477,16 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
     </div>
     <div class="chat-body" id="chatBody"></div>
     <div class="quick-row" id="quickRow"></div>
+    <div class="photo-preview hidden" id="photoPreview">
+      <img id="photoThumb" alt="">
+      <span>Grocery list attached</span>
+      <button class="modal-close" id="photoRemove" aria-label="Remove photo">✕</button>
+    </div>
     <div class="chat-input-row">
+      <input type="file" id="photoInput" accept="image/*" hidden>
+      <button class="photo-btn" id="photoBtn" aria-label="Add a photo of a grocery list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
       <textarea class="input-field" id="chatInput" rows="1" placeholder="What should I eat next?"></textarea>
       <button class="send-btn" id="chatSend">↑</button>
     </div>
@@ -853,6 +870,7 @@ ${sch.count === 0
 COACHING
 - Plan the rest of the day around the remaining macros AND the remaining meal count and time of day — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
 - Recommend specific foods and portions, not categories.
+- If the user shares a photo of a grocery list (or groceries/receipt), read every item you can make out, briefly note anything that breaks their restrictions, then build meals using ONLY those groceries (plus basic pantry staples like salt, pepper, spices, and a compliant cooking fat) that fit their remaining macros and remaining meal count. Give portions for each meal.
 - Whenever you suggest a specific food or meal the user could eat, append one log block per item on its own lines, exactly in this format (valid JSON, numbers only, sugar included):
 <log>{"name":"6oz grilled chicken breast","cal":280,"p":52,"c":0,"s":0,"f":6,"meal":"Meal 2"}</log>
   "meal" must be the name of one of today's remaining meal slots. Do not mention the log blocks in your prose — the app turns them into one-tap log buttons.`;
@@ -883,7 +901,7 @@ function renderChat() {
     body.innerHTML = `<div class="chat-empty">Ask what to eat next, what to order at a restaurant,<br>or how to hit your protein with ${todaySchedule().count || 'no'} meal${todaySchedule().count === 1 ? '' : 's'} today.</div>`;
   } else {
     body.innerHTML = chat.map((m, mi) => {
-      if (m.role === 'user') return `<div class="msg user">${esc(m.content).replace(/\n/g, '<br>')}</div>`;
+      if (m.role === 'user') return `<div class="msg user">${m.img ? `<img class="msg-img" src="${m.img}" alt="Grocery list">` : m.hadImage ? '<span class="msg-img-tag">📷 Grocery list photo</span>' : ''}${esc(m.content).replace(/\n/g, '<br>')}</div>`;
       const { prose, logs } = parseBot(m.content);
       return `<div class="msg bot">${mdLite(prose)}${logs.map((l, li) => {
         const done = (m.logged || []).includes(li);
@@ -901,18 +919,35 @@ function renderChat() {
     `${r0(T.cal - t.cal)} kcal · ${r0(T.p - t.p)}g protein left · ${sch.count - new Set(day.items.map(i => itemSlot(i, sch.count))).size} meals to go`;
   const quick = sch.count === 0
     ? ['How do I get through the hunger?', 'Electrolytes for today?', 'Plan my break-fast meal for tomorrow']
-    : ['What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
+    : ['📷 Build meals from my grocery list', 'What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
   $('quickRow').innerHTML = quick.map(q => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('');
+}
+
+const GROCERY_PROMPT = "Here's my grocery list — build meals from it that fit my remaining macros, meals, and restrictions.";
+let pendingImg = null; // data URL of the photo waiting to be sent
+
+// Photos stay in memory only (too big for localStorage); history keeps a marker instead
+const saveChat = () => store.set('mt_chat', chat.map(({ img, ...m }) => m));
+function apiContent(m) {
+  if (m.role !== 'user') return m.content;
+  if (m.img) return [
+    { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:m.img.split(',')[1] } },
+    { type:'text', text:m.content },
+  ];
+  return m.hadImage ? `[I shared a photo of my grocery list earlier]\n${m.content}` : m.content;
 }
 
 async function sendChat(text) {
   text = (text || '').trim();
-  if (!text || chatBusy) return;
-  chat.push({ role:'user', content:text });
+  if ((!text && !pendingImg) || chatBusy) return;
+  const msg = { role:'user', content: text || GROCERY_PROMPT };
+  if (pendingImg) { msg.img = pendingImg; msg.hadImage = true; }
+  chat.push(msg);
+  clearPhoto();
   $('chatInput').value = ''; autoGrow();
   chatBusy = true; $('chatSend').disabled = true; renderChat();
   try {
-    const history = chat.slice(-30).map(m => ({ role:m.role, content:m.content }));
+    const history = chat.slice(-30).map(m => ({ role:m.role, content:apiContent(m) }));
     while (history.length && history[0].role !== 'user') history.shift();
     const reply = await callClaude({ model:CHAT_MODEL, max_tokens:16000, system:buildSystem(), messages:history, extra:{ fallbacks:'default' }, beta:'server-side-fallback-2026-07-01' });
     chat.push({ role:'assistant', content: reply || '…', logged:[] });
@@ -921,12 +956,40 @@ async function sendChat(text) {
     chatBusy = false; $('chatSend').disabled = false; renderChat();
     $('chatBody').innerHTML += `<div class="msg bot err">${esc(err.message)}</div>`;
     $('chatInput').value = text;
+    if (msg.img) showPhoto(msg.img);
     return;
   }
   chatBusy = false; $('chatSend').disabled = false;
-  store.set('mt_chat', chat);
+  saveChat();
   renderChat();
 }
+
+// Downscale on-device so uploads stay small and fast
+function loadPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1568 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't read that photo — try another.")); };
+    img.src = url;
+  });
+}
+function showPhoto(dataUrl) { pendingImg = dataUrl; $('photoThumb').src = dataUrl; $('photoPreview').classList.remove('hidden'); $('chatInput').placeholder = 'Add a note (optional) and send'; }
+function clearPhoto() { pendingImg = null; $('photoInput').value = ''; $('photoPreview').classList.add('hidden'); $('chatInput').placeholder = 'What should I eat next?'; }
+$('photoBtn').onclick = () => $('photoInput').click();
+$('photoRemove').onclick = clearPhoto;
+$('photoInput').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { showPhoto(await loadPhoto(f)); $('chatInput').focus(); }
+  catch (err) { $('chatBody').innerHTML += `<div class="msg bot err">${esc(err.message)}</div>`; }
+};
 
 $('chatBody').onclick = e => {
   const b = e.target.closest('[data-log]'); if (!b || b.classList.contains('done')) return;
@@ -936,15 +999,18 @@ $('chatBody').onclick = e => {
   const slot = sch.slots.findIndex(s => s.name.toLowerCase() === String(l.meal || '').toLowerCase());
   logItem(l, slot >= 0 ? slot : undefined);
   msg.logged = [...(msg.logged || []), li];
-  store.set('mt_chat', chat);
+  saveChat();
   renderChat();
 };
-$('quickRow').onclick = e => { const b = e.target.closest('[data-q]'); if (b) sendChat(b.dataset.q); };
+$('quickRow').onclick = e => {
+  const b = e.target.closest('[data-q]'); if (!b) return;
+  if (b.dataset.q.startsWith('📷')) $('photoInput').click(); else sendChat(b.dataset.q);
+};
 $('chatSend').onclick = () => sendChat($('chatInput').value);
 $('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat($('chatInput').value); } };
 function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
 $('chatInput').oninput = autoGrow;
-$('chatClear').onclick = () => { chat = []; store.set('mt_chat', chat); renderChat(); };
+$('chatClear').onclick = () => { chat = []; clearPhoto(); saveChat(); renderChat(); };
 
 function openChat() { $('chatOverlay').classList.add('open'); $('chatSheet').style.transform = ''; renderChat(); document.body.style.overflow = 'hidden'; }
 function closeChat() { $('chatOverlay').classList.remove('open'); document.body.style.overflow = ''; }
