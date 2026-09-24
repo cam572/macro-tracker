@@ -318,6 +318,17 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .send-btn:disabled { opacity:.5; }
 
 .hidden { display:none !important; }
+
+/* iOS Safari zooms into any field under 16px — keep touch devices at 16px */
+@media (pointer: coarse) {
+  input, textarea, select { font-size:16px !important; }
+  .slot-head { display:none; }
+  .slot-row { grid-template-columns:22px 1fr 1fr; }
+  .slot-row input:not([type=time]) { grid-column:2 / 4; }
+  .slot-row input[type=time] { grid-column:auto; }
+  .slot-row input[data-f=start] { grid-column:2; }
+  .slot-row { margin-bottom:12px; }
+}
 </style>
 </head>
 <body>
