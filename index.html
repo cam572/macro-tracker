@@ -217,6 +217,10 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .ai-btn:hover { background:#6aabff; }
 .ai-btn:disabled { opacity:.5; cursor:default; }
 .ai-status { font-size:11px; margin-top:8px; min-height:14px; }
+.ai-breakdown { margin-top:8px; background:var(--s2); border:1px solid var(--border); border-radius:10px; padding:8px 12px; }
+.ai-breakdown-row { display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:3px 0; }
+.ai-breakdown-row span:last-child { font-family:var(--FM); font-size:10px; color:var(--muted); white-space:nowrap; }
+.ai-breakdown-note { font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5; }
 .ai-status.ok { color:var(--lime); }
 .ai-status.err { color:var(--red); }
 .ai-status.thinking { color:var(--blue); }
@@ -440,6 +444,7 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
           <button class="btn-primary" id="addFood">Add</button>
         </div>
         <div class="ai-status" id="aiStatus"></div>
+        <div class="ai-breakdown hidden" id="aiBreakdown"></div>
       </div>
 
       <div class="section-label">Food log</div>
@@ -501,7 +506,7 @@ const MACROS = [
   { k:'f', label:'Fat',     color:'#ff7a3d' },
 ];
 const CHAT_MODEL = 'claude-opus-5';
-const FILL_MODEL = 'claude-sonnet-5';
+const FILL_MODEL = 'claude-opus-5';
 const RING_C = 2 * Math.PI * 23;
 
 /* ═══════════════════════════════ STORAGE */
@@ -736,6 +741,7 @@ $('addFood').onclick = () => {
   if (!name && vals.every(v => !v)) { setAi('Enter a food name or macros.', 'err'); return; }
   logItem({ name: name || 'Quick add', cal:vals[0], p:vals[1], c:vals[2], s:vals[3], f:vals[4] });
   ['fName','fCal','fP','fC','fS','fF'].forEach(id => $(id).value = '');
+  $('aiBreakdown').classList.add('hidden');
   setAi('Added.', 'ok');
 };
 $('fName').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('askAi').click(); } };
@@ -747,30 +753,73 @@ async function callClaude({ model, system, messages, max_tokens, extra = {}, bet
   if (!S.apiKey) throw new Error('Add your Anthropic API key in Setup.');
   const headers = { 'Content-Type':'application/json', 'x-api-key':S.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' };
   if (beta) headers['anthropic-beta'] = beta;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:'POST', headers,
-    body: JSON.stringify({ model, max_tokens, system, messages, ...extra }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error?.message || `API error ${res.status}`);
-  if (data.stop_reason === 'refusal') throw new Error("Claude couldn't answer that one — try rephrasing.");
-  return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  let msgs = messages, text = '';
+  for (let turn = 0; turn < 4; turn++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers,
+      body: JSON.stringify({ model, max_tokens, system, messages:msgs, ...extra }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 400) {
+      // Degrade gracefully: drop the fallback beta first, then web search (e.g. disabled for the org)
+      if (beta) { const { fallbacks, ...rest } = extra; return callClaude({ model, system, messages, max_tokens, extra: rest }); }
+      if (extra.tools) { const { tools, ...rest } = extra; return callClaude({ model, system, messages, max_tokens, extra: rest }); }
+    }
+    if (!res.ok) throw new Error(data?.error?.message || `API error ${res.status}`);
+    if (data.stop_reason === 'refusal') throw new Error("Claude couldn't answer that one — try rephrasing.");
+    text += (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    // Long web searches can pause mid-turn; send the partial turn back to let it finish
+    if (data.stop_reason !== 'pause_turn') return text;
+    msgs = [...messages, { role:'assistant', content:data.content }];
+  }
+  return text;
 }
+
+// Pull the result object out of a reply that may include prose before it
+function extractJSON(text) {
+  const end = text.lastIndexOf('}');
+  for (let i = text.indexOf('{'); i >= 0 && i < end; i = text.indexOf('{', i + 1)) {
+    try { const j = JSON.parse(text.slice(i, end + 1)); if (j && Array.isArray(j.items)) return j; } catch {}
+  }
+  throw new Error("Couldn't read the macro estimate — try Ask AI again.");
+}
+
+const MACRO_SYSTEM = `You are a meticulous nutrition analyst. Estimate the nutrition of the food the user describes.
+
+Method:
+1. Split the description into individual components (e.g. "chicken burrito bowl" → chicken, rice, beans, salsa, cheese, etc.).
+2. Decide a specific amount for each and convert it to grams. Use the stated portion exactly. If no portion is given, use one typical adult serving and say so in "assumptions". Note whether weights are raw or cooked and use values for that state (e.g. 6 oz raw chicken ≈ 4.5 oz cooked).
+3. Include cooking fats, sauces, dressings, and toppings when the description implies them (fried, sautéed, "with butter", restaurant dishes) — these are the most commonly missed calories.
+4. For simple whole foods (eggs, rice, chicken breast, fruit, etc.) use USDA FoodData Central values from memory — don't search.
+   For branded, packaged, or chain-restaurant items, or anything you're unsure of, use web search to find the official published nutrition facts (the brand's own site or nutrition calculator first, then reliable databases). Match the exact item and size.
+5. Sugar = total sugars (natural + added). Make each item's calories consistent with its macros (≈4 kcal/g protein and carbs, 9 kcal/g fat; fiber and alcohol can shift this slightly).
+
+Be precise, not conservative — don't round portions down or pad them up.
+
+Finish your reply with ONLY this JSON object (no markdown fences, nothing after it):
+{"name":"short clean name for the log","items":[{"food":"...","amount":"household amount + grams, e.g. 1 cup cooked (158 g)","calories":0,"protein":0,"carbs":0,"sugar":0,"fat":0}],"assumptions":"one short sentence on portions/prep assumed, or which source you used; empty if none"}`;
 
 $('askAi').onclick = async () => {
   const q = $('fName').value.trim();
   if (!q) { setAi('Describe the food first — e.g. "2 eggs scrambled in butter".', 'err'); return; }
-  $('askAi').disabled = true; setAi('Estimating macros…', 'thinking');
+  $('askAi').disabled = true; $('aiBreakdown').classList.add('hidden');
+  setAi('Analyzing — may search the web for brand or restaurant items…', 'thinking');
   try {
     const txt = await callClaude({
-      model: FILL_MODEL, max_tokens: 1024, extra: { thinking: { type:'disabled' } },
-      system: 'You are a nutrition database. Estimate macros for the described food and portion (assume a typical serving if unspecified). Return ONLY a JSON object, no markdown: {"name":"short clean name","calories":0,"protein":0,"carbs":0,"sugar":0,"fat":0}. Grams, rounded to 1 decimal.',
+      model: FILL_MODEL, max_tokens: 8000, system: MACRO_SYSTEM,
       messages: [{ role:'user', content: q }],
+      extra: { fallbacks:'default', output_config:{ effort:'medium' }, tools:[{ type:'web_search_20260209', name:'web_search', max_uses:3 }] },
+      beta: 'server-side-fallback-2026-07-01',
     });
-    const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+    const j = extractJSON(txt);
+    // Totals come from the itemized breakdown so they always add up
+    const tot = j.items.reduce((a, it) => ({ cal:a.cal+n(it.calories), p:a.p+n(it.protein), c:a.c+n(it.carbs), s:a.s+n(it.sugar), f:a.f+n(it.fat) }), { cal:0, p:0, c:0, s:0, f:0 });
     $('fName').value = j.name || q;
-    $('fCal').value = r0(n(j.calories)); $('fP').value = r1(n(j.protein)); $('fC').value = r1(n(j.carbs)); $('fS').value = r1(n(j.sugar)); $('fF').value = r1(n(j.fat));
-    setAi('Filled — check it, then Add.', 'ok');
+    $('fCal').value = r0(tot.cal); $('fP').value = r1(tot.p); $('fC').value = r1(tot.c); $('fS').value = r1(tot.s); $('fF').value = r1(tot.f);
+    $('aiBreakdown').innerHTML = j.items.map(it => `<div class="ai-breakdown-row"><span>${esc(it.food)} · ${esc(it.amount)}</span><span>${r0(n(it.calories))} kcal · ${r0(n(it.protein))}P ${r0(n(it.carbs))}C ${r0(n(it.fat))}F</span></div>`).join('') +
+      (j.assumptions ? `<div class="ai-breakdown-note">Assumed: ${esc(j.assumptions)}</div>` : '');
+    $('aiBreakdown').classList.remove('hidden');
+    setAi('Filled — check the breakdown, then Add. Wrong portion? Edit the description and Ask AI again.', 'ok');
   } catch (err) { setAi(err.message, 'err'); }
   $('askAi').disabled = false;
 };
