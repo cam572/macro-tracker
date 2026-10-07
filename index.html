@@ -265,6 +265,25 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .wc-legend { display:flex; gap:14px; margin-top:12px; font-size:10px; color:var(--muted); }
 .wc-legend i { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
 
+/* Progress report */
+.rp-periods { display:flex; gap:6px; margin-bottom:14px; }
+.rp-score { display:flex; align-items:baseline; gap:10px; margin-bottom:14px; }
+.rp-score-num { font-family:var(--FD); font-size:56px; color:var(--lime); line-height:1; }
+.rp-score-label { font-size:12px; color:var(--muted); line-height:1.5; }
+.rp-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:12px; }
+.rp-tile { background:var(--s2); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+.rp-tile-val { font-family:var(--FD); font-size:26px; line-height:1; letter-spacing:0.02em; }
+.rp-tile-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); margin-top:4px; }
+.rp-tile-sub { font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:2px; }
+.rp-avgs { font-family:var(--FM); font-size:11px; color:var(--muted); line-height:1.7; margin-bottom:14px; }
+.rp-avgs strong { color:var(--text); font-weight:500; }
+.rp-ai { margin-top:12px; font-size:14px; line-height:1.6; }
+.rp-ai strong { color:var(--lime); font-weight:600; }
+.rp-ai ul { padding-left:18px; margin:4px 0; }
+.rp-ai p + p, .rp-ai ul + p, .rp-ai p + ul { margin-top:8px; }
+.rp-ai-meta { font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:10px; }
+.rp-empty { font-size:13px; color:var(--muted); line-height:1.6; }
+
 /* ═══════════════════════════════ CHAT */
 .chat-fab {
   position:fixed; right:18px; bottom:max(18px, env(safe-area-inset-bottom)); z-index:100;
@@ -460,6 +479,15 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
         <span><i style="background:var(--s3);border:1px solid var(--border2)"></i>Under</span>
         <span><i style="background:var(--orange)"></i>Over</span>
       </div>
+    </div>
+
+    <div class="section-label">Progress report</div>
+    <div class="card">
+      <div class="rp-periods" id="rpPeriods"></div>
+      <div id="rpStats"></div>
+      <button class="ai-btn" id="rpAsk" style="width:100%;">Get coach report</button>
+      <div class="ai-status" id="rpStatus"></div>
+      <div id="rpAi"></div>
     </div>
   </div>
 </div>
@@ -693,6 +721,7 @@ function renderToday() {
   if (fasting) { $('fastNote').value = day.note || ''; tickFast(); }
   else renderFood(sch);
   renderWeek();
+  renderReport();
 }
 
 function defaultSlot(sch) {
@@ -1110,6 +1139,139 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('chatOve
   sheet.addEventListener('touchend', end);
   sheet.addEventListener('touchcancel', end);
 })();
+
+/* ═══════════════════════════════ PROGRESS REPORT */
+let rpDays = store.get('mt_rp_days', 7);
+const pct = (a, b) => b ? Math.round(a / b * 100) : null;
+
+function firstLogDate() {
+  let first = null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith('mt_log_') && store.get(k, { items:[] }).items.length && (!first || k.slice(7) < first)) first = k.slice(7);
+    }
+  } catch {}
+  return first;
+}
+
+// Stats over the last N days, counting only from the first day anything was logged
+function reportStats(N) {
+  const first = firstLogDate();
+  const T = S.targets, days = [];
+  for (let i = N - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = dateKey(d);
+    if (!first || k < first) continue;
+    const log = k === todayKey ? day : loadDay(k);
+    const sched = S.schedule[dayIdx(d)] || { count:3 };
+    const t = totals(log.items);
+    days.push({ k, d, isToday: k === todayKey, items: log.items, t, planned: sched.count,
+      slotsHit: sched.count ? new Set(log.items.map(it => itemSlot(it, sched.count))).size : 0 });
+  }
+  // Today is still in progress — leave it out of target scoring unless it's the only day
+  const scored = days.filter(x => !x.isToday || days.length === 1);
+  const eatDays = scored.filter(x => x.planned > 0 && x.items.length);
+  const fastDays = scored.filter(x => x.planned === 0);
+  const plannedEat = scored.filter(x => x.planned > 0);
+  const within = (v, tgt) => tgt > 0 && Math.abs(v - tgt) / tgt <= 0.1;
+  const st = {
+    N, first, days, scored,
+    logged: plannedEat.filter(x => x.items.length).length, loggable: plannedEat.length,
+    calHit: eatDays.filter(x => within(x.t.cal, T.cal)).length,
+    calOver: eatDays.filter(x => T.cal && x.t.cal > T.cal * 1.1).length,
+    proHit: eatDays.filter(x => T.p && x.t.p >= T.p * 0.9).length,
+    sugarOk: eatDays.filter(x => !T.s || x.t.s <= T.s).length,
+    eatN: eatDays.length,
+    fastKept: fastDays.filter(x => !x.items.length).length, fastN: fastDays.length,
+    meals: plannedEat.reduce((a, x) => a + x.slotsHit, 0), mealsPlanned: plannedEat.reduce((a, x) => a + x.planned, 0),
+    avg: eatDays.length ? Object.fromEntries(['cal','p','c','s','f'].map(m => [m, eatDays.reduce((a, x) => a + x.t[m], 0) / eatDays.length])) : null,
+  };
+  // Logging streak: consecutive days with food logged (or a kept fast), ending yesterday or today
+  let streak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = dateKey(d); const log = k === todayKey ? day : loadDay(k);
+    const fast = (S.schedule[dayIdx(d)] || {}).count === 0;
+    const ok = log.items.length > 0 || (fast && i > 0);
+    if (ok) streak++; else if (i > 0) break;
+  }
+  st.streak = streak;
+  const parts = [pct(st.logged, st.loggable), pct(st.calHit, st.eatN), pct(st.proHit, st.eatN), pct(st.sugarOk, st.eatN), pct(st.fastKept, st.fastN)].filter(v => v != null);
+  st.score = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+  return st;
+}
+
+function renderReport() {
+  $('rpPeriods').innerHTML = [7, 14, 30].map(n => `<button class="slot-pick-btn ${rpDays === n ? 'active' : ''}" data-rp="${n}">${n} days</button>`).join('');
+  const st = reportStats(rpDays);
+  if (!st.scored.length || !(st.logged || st.fastN)) {
+    $('rpStats').innerHTML = `<div class="rp-empty" style="margin-bottom:12px;">Log a few days of food and your progress report shows up here.</div>`;
+  } else {
+    const tile = (val, label, sub, color) => `<div class="rp-tile"><div class="rp-tile-val" style="color:${color || 'var(--text)'}">${val}</div><div class="rp-tile-label">${label}</div>${sub ? `<div class="rp-tile-sub">${sub}</div>` : ''}</div>`;
+    const frac = (a, b) => b ? `${a}/${b} days` : 'no days yet';
+    const col = v => v == null ? 'var(--muted)' : v >= 80 ? 'var(--lime)' : v >= 50 ? 'var(--text)' : 'var(--orange)';
+    const P = (a, b) => { const v = pct(a, b); return v == null ? '—' : v + '%'; };
+    const T = S.targets, a = st.avg;
+    $('rpStats').innerHTML = `
+      <div class="rp-score"><div class="rp-score-num" style="color:${col(st.score)}">${st.score ?? '—'}${st.score != null ? '%' : ''}</div>
+        <div class="rp-score-label">Overall adherence · ${esc(S.goal)}<br>${st.scored.length} day${st.scored.length === 1 ? '' : 's'} tracked${st.first && st.days.length < rpDays ? ' (since you started)' : ''}</div></div>
+      <div class="rp-grid">
+        ${tile(P(st.calHit, st.eatN), 'Calories on target', `±10% · ${frac(st.calHit, st.eatN)}`, col(pct(st.calHit, st.eatN)))}
+        ${tile(P(st.proHit, st.eatN), 'Protein hit', `≥90% · ${frac(st.proHit, st.eatN)}`, col(pct(st.proHit, st.eatN)))}
+        ${tile(P(st.sugarOk, st.eatN), 'Sugar under cap', frac(st.sugarOk, st.eatN), col(pct(st.sugarOk, st.eatN)))}
+        ${tile(P(st.logged, st.loggable), 'Days logged', frac(st.logged, st.loggable), col(pct(st.logged, st.loggable)))}
+        ${st.fastN ? tile(P(st.fastKept, st.fastN), 'Fasts kept', frac(st.fastKept, st.fastN), col(pct(st.fastKept, st.fastN))) : ''}
+        ${tile(st.streak, 'Day streak', 'logging in a row', 'var(--lime)')}
+      </div>
+      ${a ? `<div class="rp-avgs">Daily avg: <strong>${r0(a.cal)}</strong>/${r0(T.cal)} kcal · P <strong>${r0(a.p)}</strong>/${r0(T.p)} · C <strong>${r0(a.c)}</strong>/${r0(T.c)} · S <strong>${r0(a.s)}</strong>/${r0(T.s)} · F <strong>${r0(a.f)}</strong>/${r0(T.f)}<br>Meals logged: ${st.meals}/${st.mealsPlanned} planned${st.calOver ? ` · ${st.calOver} day${st.calOver === 1 ? '' : 's'} over calories` : ''}</div>` : ''}`;
+  }
+  const saved = store.get('mt_report', null);
+  $('rpAi').innerHTML = saved && saved.days === rpDays
+    ? `<div class="rp-ai">${mdLite(saved.text)}</div><div class="rp-ai-meta">Coach report · ${new Date(saved.at).toLocaleDateString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}</div>`
+    : '';
+  $('rpAsk').textContent = saved && saved.days === rpDays ? 'Refresh coach report' : 'Get coach report';
+}
+
+$('rpPeriods').onclick = e => { const b = e.target.closest('[data-rp]'); if (!b) return; rpDays = +b.dataset.rp; store.set('mt_rp_days', rpDays); $('rpStatus').textContent = ''; renderReport(); };
+
+$('rpAsk').onclick = async () => {
+  const st = reportStats(rpDays);
+  if (!st.scored.length || !(st.logged || st.fastN)) { $('rpStatus').className = 'ai-status err'; $('rpStatus').textContent = 'Log some food first.'; return; }
+  const T = S.targets, restr = [...S.presets, ...S.custom];
+  const lines = st.days.map(x => {
+    const wd = x.d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+    if (x.planned === 0) return `${wd}: FASTING DAY — ${x.items.length ? `broke fast (${r0(x.t.cal)} kcal)` : 'fast kept'}`;
+    if (!x.items.length) return `${wd}: nothing logged${x.isToday ? ' (today, in progress)' : ''}`;
+    return `${wd}${x.isToday ? ' (today, in progress)' : ''}: ${r0(x.t.cal)} kcal · P ${r0(x.t.p)} · C ${r0(x.t.c)} · S ${r0(x.t.s)} · F ${r0(x.t.f)} · ${x.slotsHit}/${x.planned} meals · ${x.items.map(i => i.name).join(', ')}`;
+  }).join('\n');
+  const system = `You are ${S.name ? S.name + "'s" : 'the user\'s'} nutrition coach writing a progress report. Be honest and specific — cite real days and numbers, spot patterns (weekdays vs weekends, protein shortfalls, sugar creep, skipped meals, broken fasts), and keep it encouraging without fluff.
+
+Goal: ${S.goal}. Daily targets: ${T.cal} kcal · protein ${T.p}g · carbs ${T.c}g · sugar ${T.s}g (a cap) · fat ${T.f}g.
+Dietary restrictions (never suggest anything that violates these): ${restr.length ? restr.join('; ') : 'none'}.
+Weekly meal schedule: ${DAYS.map((d, i) => `${d.slice(0,3)} ${S.schedule[i].count === 0 ? 'fast' : S.schedule[i].count + ' meals'}`).join(', ')}.
+
+Format (under 250 words, short bullets):
+**Verdict** — one or two sentences on how they're tracking toward ${S.goal}.
+**Wins** — 2-3 bullets.
+**Slipping** — 2-3 bullets.
+**Next ${rpDays === 7 ? 'week' : rpDays + ' days'}** — 3 specific, doable actions (name foods/habits that fit their restrictions and meal schedule).
+Don't output <log> blocks.`;
+  const user = `My last ${rpDays} days${st.days.length < rpDays ? ` (I started tracking ${st.first})` : ''}:
+${lines}
+
+Summary: adherence ${st.score ?? '—'}% · calories on target ${st.calHit}/${st.eatN} days · protein hit ${st.proHit}/${st.eatN} · sugar under cap ${st.sugarOk}/${st.eatN} · days logged ${st.logged}/${st.loggable}${st.fastN ? ` · fasts kept ${st.fastKept}/${st.fastN}` : ''} · streak ${st.streak} days.
+${st.avg ? `Daily averages: ${r0(st.avg.cal)} kcal · P ${r0(st.avg.p)} · C ${r0(st.avg.c)} · S ${r0(st.avg.s)} · F ${r0(st.avg.f)}.` : ''}`;
+  $('rpAsk').disabled = true; $('rpStatus').className = 'ai-status thinking'; $('rpStatus').textContent = 'Writing your report…';
+  try {
+    const text = await callClaude({ model:CHAT_MODEL, max_tokens:8000, system, messages:[{ role:'user', content:user }],
+      extra:{ fallbacks:'default', output_config:{ effort:'medium' } }, beta:'server-side-fallback-2026-07-01' });
+    store.set('mt_report', { days: rpDays, text, at: Date.now() });
+    $('rpStatus').textContent = '';
+    renderReport();
+  } catch (err) { $('rpStatus').className = 'ai-status err'; $('rpStatus').textContent = err.message; }
+  $('rpAsk').disabled = false;
+};
 
 /* ═══════════════════════════════ INIT */
 renderToday();
