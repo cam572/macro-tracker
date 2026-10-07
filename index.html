@@ -1438,6 +1438,22 @@ ${st.avg ? `Daily averages: ${r0(st.avg.cal)} kcal · P ${r0(st.avg.p)} · C ${r
   $('rpAsk').disabled = false;
 };
 
+/* ═══════════════════════════════ AUTO-UPDATE */
+// Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
+const BUILD = '2026-10-06.2';
+async function checkForUpdate() {
+  try {
+    const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
+    const live = (html.match(/const BUILD = '([^']+)'/) || [])[1];
+    if (!live || live === BUILD) return;
+    if (sessionStorage.getItem('mt_reloaded_for') === live) return; // never loop
+    sessionStorage.setItem('mt_reloaded_for', live);
+    location.reload();
+  } catch {}
+}
+checkForUpdate();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+
 /* ═══════════════════════════════ INIT */
 renderToday();
 photoDB.get().then(p => { groceryImg = typeof p === 'string' ? p : null; renderGrocery(); });
