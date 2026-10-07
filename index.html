@@ -488,6 +488,7 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
       <button class="ai-btn" id="rpAsk" style="width:100%;">Get coach report</button>
       <div class="ai-status" id="rpStatus"></div>
       <div id="rpAi"></div>
+      <button class="btn-secondary" id="rpPdf" style="width:100%;margin-top:12px;">Download PDF</button>
     </div>
   </div>
 </div>
@@ -1232,6 +1233,170 @@ function renderReport() {
     : '';
   $('rpAsk').textContent = saved && saved.days === rpDays ? 'Refresh coach report' : 'Get coach report';
 }
+
+/* PDF export — jsPDF is preloaded so the share sheet opens straight from the tap */
+let jsPdfP = null;
+function loadJsPdf() {
+  return jsPdfP ||= new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js';
+    sc.onload = () => res(window.jspdf.jsPDF);
+    sc.onerror = () => { jsPdfP = null; rej(new Error("Couldn't load the PDF tool — check your connection.")); };
+    document.head.appendChild(sc);
+  });
+}
+setTimeout(() => loadJsPdf().catch(() => {}), 2000);
+
+// Built-in PDF fonts only cover Latin characters — swap or drop the rest
+const pdfText = t => String(t ?? '')
+  .replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/[→⇒]/g, '->').replace(/[−‐‑]/g, '-').replace(/≈/g, '~')
+  .replace(/[^\x20-\x7E\xA0-\xFF\n–—‘’“”•…]/g, '').replace(/ +([.,!?;:])/g, '$1').replace(/[ \t]+\n/g, '\n');
+
+function buildReportPdf(jsPDF) {
+  const st = reportStats(rpDays), T = S.targets;
+  const doc = new jsPDF({ unit:'pt', format:'letter' });
+  const W = 612, H = 792, M = 48, CW = W - M * 2;
+  const INK = [20, 20, 20], MUTED = [110, 110, 110], LINE = [225, 225, 225], ACCENT = [200, 241, 53], GOOD = [86, 128, 0], WARN = [214, 92, 20];
+  let y = M;
+  const color = c => doc.setTextColor(...c);
+  const font = (size, style = 'normal') => { doc.setFont('helvetica', style); doc.setFontSize(size); };
+  const need = h => { if (y + h > H - M) { doc.addPage(); y = M; } };
+  const section = title => { need(80); y += 14; font(11, 'bold'); color(INK); doc.text(title.toUpperCase(), M, y); y += 6; doc.setDrawColor(...LINE); doc.line(M, y, W - M, y); y += 16; };
+  const toneColor = v => v == null ? MUTED : v >= 80 ? GOOD : v >= 50 ? INK : WARN;
+
+  // Header
+  doc.setFillColor(...ACCENT); doc.rect(0, 0, W, 8, 'F');
+  font(24, 'bold'); color(INK); doc.text('Progress Report', M, y + 14); y += 34;
+  const first = st.days[0]?.d, last = st.days[st.days.length - 1]?.d;
+  const fmt = d => d ? d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) : '';
+  font(10); color(MUTED);
+  doc.text(pdfText(`${S.name ? S.name + '  ·  ' : ''}Goal: ${S.goal}  ·  ${fmt(first)} – ${fmt(last)} (${rpDays}-day view)`), M, y); y += 14;
+  doc.text(pdfText(`Generated ${new Date().toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' })}`), M, y); y += 26;
+
+  // Score
+  font(44, 'bold'); color(toneColor(st.score)); doc.text(st.score != null ? st.score + '%' : '—', M, y + 30);
+  font(11); color(INK); doc.text('Overall adherence', M + 120, y + 14);
+  font(9); color(MUTED); doc.text(pdfText(`${st.scored.length} day${st.scored.length === 1 ? '' : 's'} tracked · ${st.streak}-day logging streak`), M + 120, y + 28);
+  y += 50;
+
+  // Adherence table
+  section('Adherence');
+  const rows = [
+    ['Calories on target', 'within ±10% of goal', st.calHit, st.eatN],
+    ['Protein hit', '>= 90% of target', st.proHit, st.eatN],
+    ['Sugar under cap', `<= ${r0(T.s)} g`, st.sugarOk, st.eatN],
+    ['Days logged', 'eating days with food logged', st.logged, st.loggable],
+    ...(st.fastN ? [['Fasts kept', 'fasting days with nothing logged', st.fastKept, st.fastN]] : []),
+    ['Meals logged', 'vs. meals planned', st.meals, st.mealsPlanned],
+  ];
+  for (const [label, sub, a, b] of rows) {
+    need(22); const v = pct(a, b);
+    font(10, 'bold'); color(INK); doc.text(label, M, y);
+    font(9); color(MUTED); doc.text(pdfText(sub), M + 150, y);
+    font(10); color(MUTED); doc.text(b ? `${a}/${b}` : '—', M + 380, y, { align:'right' });
+    font(10, 'bold'); color(toneColor(v)); doc.text(v == null ? '—' : v + '%', W - M, y, { align:'right' });
+    y += 8; doc.setDrawColor(...LINE); doc.line(M, y, W - M, y); y += 14;
+  }
+
+  // Averages vs targets
+  if (st.avg) {
+    section('Daily average vs target');
+    const cols = [['Calories', 'cal', 'kcal'], ['Protein', 'p', 'g'], ['Carbs', 'c', 'g'], ['Sugar', 's', 'g'], ['Fat', 'f', 'g']];
+    const cw = CW / cols.length;
+    cols.forEach(([label, k, unit], i) => {
+      const x = M + i * cw, avg = st.avg[k], tgt = T[k];
+      const off = tgt ? (avg - tgt) / tgt : 0;
+      const bad = k === 's' ? avg > tgt : (k === 'p' ? off < -0.1 : Math.abs(off) > 0.1);
+      font(9, 'bold'); color(MUTED); doc.text(label.toUpperCase(), x, y);
+      font(16, 'bold'); color(bad ? WARN : INK); doc.text(`${r0(avg)}`, x, y + 20);
+      font(9); color(MUTED); doc.text(`of ${r0(tgt)} ${unit}`, x, y + 33);
+    });
+    y += 46;
+  }
+
+  // Day by day
+  section('Day by day');
+  const cx = [M, M + 120, M + 190, M + 240, M + 290, M + 340, M + 390, W - M];
+  font(8, 'bold'); color(MUTED);
+  ['DATE', 'KCAL', 'PROTEIN', 'CARBS', 'SUGAR', 'FAT', 'MEALS'].forEach((h, i) => doc.text(h, cx[i], y));
+  doc.text('STATUS', cx[7], y, { align:'right' }); y += 12;
+  for (const x of st.days) {
+    need(18);
+    const status = x.planned === 0 ? (x.items.length ? 'Fast broken' : 'Fast kept')
+      : !x.items.length ? (x.isToday ? 'In progress' : 'Not logged')
+      : x.isToday ? 'In progress'
+      : Math.abs(x.t.cal - T.cal) / (T.cal || 1) <= 0.1 ? 'On target' : x.t.cal > T.cal ? 'Over' : 'Under';
+    font(9); color(INK);
+    doc.text(pdfText(x.d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })), cx[0], y);
+    if (x.items.length) {
+      [r0(x.t.cal), r0(x.t.p), r0(x.t.c), r0(x.t.s), r0(x.t.f)].forEach((v, i) => doc.text(String(v), cx[i + 1], y));
+      doc.text(x.planned ? `${x.slotsHit}/${x.planned}` : '—', cx[6], y);
+    } else { color(MUTED); doc.text('—', cx[1], y); }
+    color(status === 'On target' || status === 'Fast kept' ? GOOD : status === 'Over' || status === 'Fast broken' || status === 'Not logged' ? WARN : MUTED);
+    font(9, 'bold'); doc.text(status, cx[7], y, { align:'right' });
+    y += 6; doc.setDrawColor(...LINE); doc.line(M, y, W - M, y); y += 12;
+  }
+
+  // Coach report
+  const saved = store.get('mt_report', null);
+  if (saved && saved.days === rpDays) {
+    section('Coach report');
+    for (const raw of pdfText(saved.text).split('\n')) {
+      const line = raw.trim();
+      if (!line) { y += 6; continue; }
+      const bullet = /^([-*•]|\d+\.)\s+/.test(line);
+      let body = line.replace(/^([-*•]|\d+\.)\s+/, '').replace(/^#+\s*/, '');
+      const head = body.match(/^\*\*(.+?)\*\*\s*[—–:-]?\s*(.*)$/);
+      if (head && !bullet) {
+        need(26); y += 6; font(11, 'bold'); color(INK); doc.text(head[1], M, y); y += 15;
+        body = head[2];
+        if (!body) continue;
+      }
+      body = body.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+      font(10); color(INK);
+      const indent = bullet ? 14 : 0;
+      const wrapped = doc.splitTextToSize(body, CW - indent);
+      for (let i = 0; i < wrapped.length; i++) {
+        need(14);
+        if (bullet && i === 0) doc.text('•', M + 2, y);
+        doc.text(wrapped[i], M + indent, y); y += 14;
+      }
+    }
+  } else {
+    section('Coach report');
+    font(10); color(MUTED); doc.text(pdfText('Tap “Get coach report” in the app to include a written review.'), M, y); y += 14;
+  }
+
+  // Page footers
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i); font(8); color(MUTED);
+    doc.text('MacroTrack progress report', M, H - 24);
+    doc.text(`Page ${i} of ${pages}`, W - M, H - 24, { align:'right' });
+  }
+  return doc;
+}
+
+$('rpPdf').onclick = async () => {
+  const st = reportStats(rpDays);
+  const status = (msg, cls) => { $('rpStatus').className = 'ai-status ' + (cls || ''); $('rpStatus').textContent = msg; };
+  if (!st.scored.length || !(st.logged || st.fastN)) return status('Log some food first.', 'err');
+  try {
+    const jsPDF = window.jspdf?.jsPDF || (status('Preparing PDF…', 'thinking'), await loadJsPdf());
+    const name = `progress-report-${todayKey}-${rpDays}d.pdf`;
+    const blob = buildReportPdf(jsPDF).output('blob');
+    const file = new File([blob], name, { type:'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files:[file] })) {
+      try { await navigator.share({ files:[file], title:'Progress report' }); status(''); return; }
+      catch (err) { if (err.name === 'AbortError') { status(''); return; } }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    status('PDF downloaded.', 'ok');
+  } catch (err) { status(err.message || "Couldn't create the PDF.", 'err'); }
+};
 
 $('rpPeriods').onclick = e => { const b = e.target.closest('[data-rp]'); if (!b) return; rpDays = +b.dataset.rp; store.set('mt_rp_days', rpDays); $('rpStatus').textContent = ''; renderReport(); };
 
