@@ -77,10 +77,10 @@ async function api(env, path, params = {}) {
 }
 
 // Walk every page of a collection inside the window
-async function collect(env, path, start) {
+async function collect(env, path, start, maxPages = 20) {
   const out = [];
   let nextToken;
-  for (let page = 0; page < 20; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const data = await api(env, path, { limit: 25, start, nextToken });
     out.push(...(data.records || []));
     nextToken = data.next_token;
@@ -152,6 +152,28 @@ async function days(env, n) {
   return { syncedAt: new Date().toISOString(), days: Object.values(out).sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
+// Full activity history (all sport types) with the detail Whoop records for each session
+async function workouts(env, n) {
+  const start = new Date(Date.now() - n * 86400000).toISOString();
+  const list = await collect(env, '/v2/activity/workout', start, 80); // up to 2,000 sessions
+  return {
+    syncedAt: new Date().toISOString(),
+    workouts: list.filter(w => w.score_state === 'SCORED' || w.score).map(w => {
+      const sc = w.score || {}, z = sc.zone_durations || {};
+      const zoneMin = ['zero', 'one', 'two', 'three', 'four', 'five'].map(k => Math.round((z[`zone_${k}_milli`] || 0) / 60000));
+      return {
+        id: w.id, sport: w.sport_name || 'activity', sportId: w.sport_id ?? null,
+        start: w.start, end: w.end, date: localDay(w.start, w.timezone_offset),
+        minutes: Math.round((Date.parse(w.end) - Date.parse(w.start)) / 60000),
+        strain: r1(sc.strain), kcal: kcal(sc.kilojoule), avgHr: sc.average_heart_rate ?? null, maxHr: sc.max_heart_rate ?? null,
+        distanceM: sc.distance_meter != null ? Math.round(sc.distance_meter) : null,
+        altGainM: sc.altitude_gain_meter != null ? Math.round(sc.altitude_gain_meter) : null,
+        zones: zoneMin, recorded: sc.percent_recorded ?? null,
+      };
+    }).sort((a, b) => b.start.localeCompare(a.start)),
+  };
+}
+
 export const whoop = {
   async authorizeUrl(env, origin) {
     // Whoop requires an 8-character state; keep it 10 minutes to match the callback
@@ -188,4 +210,5 @@ export const whoop = {
 
   refreshIfNeeded,
   days,
+  workouts,
 };

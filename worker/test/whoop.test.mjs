@@ -72,3 +72,10 @@ assert.equal(byDate['2026-10-17'].strain.inProgress, true);
 const t = JSON.parse(await (await import('../src/crypto.js')).open(env, kv.get('whoop:tokens')));
 assert.equal(t.refresh, 'RT');
 console.log('all whoop adapter checks passed');
+{ // Activity history endpoint
+  const r = await worker.fetch(new Request('https://w.dev/whoop/workouts?days=30', { headers: { Authorization: 'Bearer ' + env.APP_KEY } }), env);
+  const d = await r.json();
+  assert.equal(d.workouts.length, 1); assert.equal(d.workouts[0].sport, 'weightlifting'); assert.equal(d.workouts[0].minutes, 65);
+  assert.equal(d.workouts[0].date, '2026-10-16'); assert.equal(d.workouts[0].zones.length, 6);
+  console.log('workouts endpoint ok');
+}

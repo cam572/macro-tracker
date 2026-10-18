@@ -567,6 +567,30 @@ body { background:var(--bg); overflow-x:hidden; }
 .hist-actions { display:flex; gap:8px; margin-top:8px; }
 .hist-actions button { padding:7px 12px; font-size:11px; }
 
+.act-sum { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px; margin-bottom:12px; }
+.act-sum-tile { background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:14px; padding:9px 10px; }
+.act-sum-tile .k { font-size:11px; color:rgba(255,255,255,.6); display:flex; align-items:center; gap:6px; }
+.act-sum-tile .v { font-size:18px; font-weight:600; margin-top:3px; }
+.act-sum-tile .s { font-family:var(--FM); font-size:10px; color:rgba(255,255,255,.5); margin-top:1px; }
+.act-filters { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:6px; }
+.act-filters::-webkit-scrollbar { display:none; }
+.act-filters .chip { white-space:nowrap; font-size:11px; padding:5px 11px; }
+.act-row { border-bottom:1px solid var(--border); }
+.act-row:last-child { border-bottom:none; }
+.act-head { display:flex; align-items:center; gap:12px; padding:11px 0; cursor:pointer; }
+.act-ic { width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:15px; }
+.act-main { flex:1; min-width:0; }
+.act-name { font-size:14px; font-weight:500; }
+.act-meta { font-family:var(--FM); font-size:10px; color:rgba(255,255,255,.5); margin-top:2px; }
+.act-strain { text-align:right; }
+.act-strain .v { font-size:17px; font-weight:600; color:var(--lime); line-height:1; }
+.act-strain .l { font-size:9px; color:rgba(255,255,255,.45); letter-spacing:.06em; margin-top:2px; }
+.act-body { display:none; padding:0 0 12px 46px; font-size:13px; color:rgba(255,255,255,.75); line-height:1.7; }
+.act-row.open .act-body { display:block; }
+.zones { display:flex; height:6px; border-radius:3px; overflow:hidden; margin:6px 0 2px; background:rgba(255,255,255,.06); }
+.zones i { display:block; height:100%; }
+.act-more { width:100%; margin-top:10px; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -653,7 +677,7 @@ body { background:var(--bg); overflow-x:hidden; }
     <div class="lift-form glass" id="liftForm"></div>
     <div class="section-label">Strength trends</div>
     <div class="card" id="liftTrends"></div>
-    <div class="section-label">Workout history</div>
+    <div class="section-label">Activity history · from Whoop</div>
     <div class="card" id="liftHistory"></div>
   </section>
 
@@ -990,12 +1014,11 @@ function renderTrain(fromSync) {
   const vals = last7.map(x => x.d?.strain?.score ?? 0), max = Math.max(21, ...vals);
   const avg = avgOf(vals.slice(0, 6).filter(v => v > 0));
   const todayStrain = last7[6].d?.strain?.score;
-  const wos = wd.flatMap(d => d.workouts.map(x => ({ ...x, date: d.date }))).sort((a, b) => b.start.localeCompare(a.start)).slice(0, 5);
   $('trainStrain').innerHTML = !whoopConnected ? '<div class="rp-empty">Connect Whoop in Settings to see strain.</div>' : `
     <div class="strain-top"><div><div class="ready-label">Today's strain</div><div class="strain-big">${todayStrain != null ? todayStrain.toFixed(1) : '—'}</div></div>
       <div class="ready-sub" style="text-align:right">${avg ? `6-day avg ${avg.toFixed(1)}` : ''}<br>Whoop 0–21 scale</div></div>
     <div class="strain-chart">${avg ? `<div class="strain-avg" style="bottom:${(avg / max) * 70 + 16}px"></div>` : ''}${last7.map((x, i) => `<div class="strain-col"><div class="strain-bar ${i === 6 ? 'today' : ''}" style="height:${((x.d?.strain?.score ?? 0) / max) * 70}px"></div><div class="strain-lbl">${new Date(x.dk + 'T12:00:00').toLocaleDateString(undefined, { weekday:'narrow' })}</div></div>`).join('')}</div>
-    ${wos.length ? `<div style="margin-top:12px">${wos.map(x => `<div class="wo-row"><span>${esc(x.sport)} · ${new Date(x.start).toLocaleDateString(undefined, { weekday:'short' })}</span><span>${x.minutes}m · strain ${x.strain ?? '—'}${x.kcal ? ` · ${x.kcal} kcal` : ''}</span></div>`).join('')}</div>` : ''}`;
+`;
   $('trainCall').querySelectorAll('[data-ask]').forEach(b => b.onclick = () => { showTab('coach'); sendChat(b.dataset.ask); });
 
   if (!fromSync || !liftDraft) renderLiftForm(); // never yank the form out from under someone typing
@@ -1056,7 +1079,10 @@ $('liftForm').addEventListener('click', e => {
     const exercises = d.exercises.map(ex => ({ name: ex.name.trim(), sets: ex.sets.map(st => ({ reps: parseInt(st.reps) || 0, weight: parseFloat(st.weight) || 0 })).filter(st => st.reps > 0) })).filter(ex => ex.name && ex.sets.length);
     if (!exercises.length) { $('liftStatus').textContent = 'Add at least one exercise with a set.'; $('liftStatus').className = 'ai-status err'; return; }
     const date = d.date || todayKey;
-    const rec = { id: d.id || crypto.randomUUID(), date, ts: d.id ? (lifts.find(w => w.id === d.id)?.ts || Date.now()) : (date === todayKey ? Date.now() : Date.parse(date + 'T18:00:00')), name: d.name.trim() || 'Workout', exercises };
+    // Attach to the matching Whoop lifting session (same day, not already linked) when there is one
+    const taken = new Set(lifts.filter(x => x.id !== d.id && x.whoopId).map(x => x.whoopId));
+    const match = d.whoopId || (whoopWo?.workouts || []).find(w => w.date === date && actCat(w.sport)[0] === 'lifting' && !taken.has(w.id))?.id || null;
+    const rec = { id: d.id || crypto.randomUUID(), date, ts: d.id ? (lifts.find(w => w.id === d.id)?.ts || Date.now()) : (date === todayKey ? Date.now() : Date.parse(date + 'T18:00:00')), name: d.name.trim() || 'Workout', exercises, whoopId: match };
     lifts = lifts.filter(w => w.id !== rec.id).concat(rec); saveLifts();
     // Lifting is a context flag for reading the scale (water retention after training)
     const log = date === todayKey ? day : loadDay(date); log.flags = { ...(log.flags || {}), lift: true }; saveDay(date, log); if (date === todayKey) day = log;
@@ -1082,28 +1108,126 @@ function renderTrends() {
   }).join('');
 }
 
-function renderHistory() {
-  const list = [...lifts].sort((a, b) => b.ts - a.ts).slice(0, 30);
-  if (!list.length) { $('liftHistory').innerHTML = '<div class="rp-empty">No workouts logged yet.</div>'; return; }
-  $('liftHistory').innerHTML = list.map(w => {
-    const vol = w.exercises.reduce((a, ex) => a + ex.sets.reduce((b, s) => b + s.reps * s.weight, 0), 0);
-    return `<div class="hist-item" data-id="${w.id}"><div class="hist-head" data-h="toggle"><div><div class="hist-name">${esc(w.name)}</div><div class="hist-meta">${new Date(w.date + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })} · ${w.exercises.length} exercise${w.exercises.length === 1 ? '' : 's'} · ${Math.round(vol).toLocaleString()} lb volume</div></div><span style="color:rgba(255,255,255,.4)">▾</span></div>
-      <div class="hist-body">${w.exercises.map(ex => `<div><strong style="color:#fff;font-weight:500">${esc(ex.name)}</strong> — ${ex.sets.map(s => `${s.reps}×${s.weight}`).join(', ')}</div>`).join('')}
-        <div class="hist-actions"><button class="btn-secondary" data-h="repeat">Repeat</button><button class="btn-secondary" data-h="edit">Edit</button><button class="btn-secondary" data-h="del">Delete</button></div></div></div>`;
-  }).join('');
+/* Activity history: every Whoop activity (all sport types), with logged lift sets attached */
+let whoopWo = store.get('mt_whoop_wo', null);   // { syncedAt, workouts:[...] }
+let actFilter = 'all', actShow = 25;
+const WO_STALE_MS = 60 * 60 * 1000;
+const ACT_CATS = [
+  ['lifting', 'Lifting', /weight|strength|powerlift|functional|crossfit|bodybuild/, '#7DB851'],
+  ['walking', 'Walking', /walk|hik/, '#C3CFBA'],
+  ['running', 'Running', /run|track/, '#E6EAE2'],
+  ['cycling', 'Cycling', /cycl|bike|spin/, '#9DCB72'],
+  ['golf', 'Golf', /golf/, '#A8B89A'],
+  ['sauna', 'Sauna', /sauna/, '#E0A84F'],
+];
+const actCat = sport => (ACT_CATS.find(c => c[2].test(String(sport))) || ['other', 'Other', null, '#8C948A']);
+const prettySport = s => { const t = String(s || 'activity').replace(/-/g, ' '); return t.charAt(0).toUpperCase() + t.slice(1); };
+const MI = 1609.34;
+
+async function syncWhoopWorkouts(force) {
+  if (!whoopConnected) return;
+  if (!force && whoopWo && Date.now() - Date.parse(whoopWo.syncedAt) < WO_STALE_MS) return;
+  try {
+    whoopWo = await server('/whoop/workouts?days=365');
+    store.set('mt_whoop_wo', whoopWo);
+    // Whoop sauna / lifting sessions become day flags so the coach can explain scale water
+    for (const w of whoopWo.workouts.filter(x => Date.now() - Date.parse(x.start) < 21 * 86400000)) {
+      const cat = actCat(w.sport)[0], flag = cat === 'sauna' ? 'sauna' : cat === 'lifting' ? 'lift' : null;
+      if (!flag) continue;
+      const log = w.date === todayKey ? day : loadDay(w.date);
+      if (!(log.flags || {})[flag]) { log.flags = { ...(log.flags || {}), [flag]: true }; saveDay(w.date, log); if (w.date === todayKey) day = log; }
+    }
+  } catch (err) { if (force) throw err; }
+  if (currentTab === 'train') renderTrain(true);
 }
+
+function activityItems() {
+  const wo = (whoopWo?.workouts || []).map(w => ({ kind:'whoop', ts: Date.parse(w.start), w, lift: lifts.find(l => l.whoopId === w.id) }));
+  const linked = new Set(wo.filter(x => x.lift).map(x => x.lift.id));
+  const manual = lifts.filter(l => !linked.has(l.id)).map(l => ({ kind:'lift', ts: l.ts, lift: l }));
+  return [...wo, ...manual].sort((a, b) => b.ts - a.ts);
+}
+
+function renderHistory() {
+  const items = activityItems();
+  if (!items.length) { $('liftHistory').innerHTML = `<div class="rp-empty">${whoopConnected ? 'Syncing your Whoop activities…' : 'Connect Whoop in Settings to pull your activity history.'}</div>`; return; }
+  // 30-day summary per category
+  const since = Date.now() - 30 * 86400000, sum = new Map();
+  for (const x of items) {
+    if (x.ts < since) continue;
+    const c = x.kind === 'whoop' ? actCat(x.w.sport) : ACT_CATS[0];
+    const e = sum.get(c[0]) || { c, n:0, min:0, dist:0 };
+    e.n++; e.min += x.w?.minutes || 0; e.dist += x.w?.distanceM || 0; sum.set(c[0], e);
+  }
+  const cats = [...new Set(items.map(x => x.kind === 'whoop' ? actCat(x.w.sport)[0] : 'lifting'))];
+  const order = [...ACT_CATS.map(c => c[0]), 'other'].filter(k => cats.includes(k));
+  const shown = items.filter(x => actFilter === 'all' || (x.kind === 'whoop' ? actCat(x.w.sport)[0] : 'lifting') === actFilter);
+  const catLabel = k => (ACT_CATS.find(c => c[0] === k) || [k, 'Other'])[1];
+  $('liftHistory').innerHTML = `
+    <div class="ready-label" style="margin-bottom:8px">Last 30 days</div>
+    <div class="act-sum">${[...sum.values()].sort((a, b) => b.n - a.n).map(e => `<div class="act-sum-tile"><div class="k"><span class="tile-dot" style="background:${e.c[3]}"></span>${e.c[1]}</div><div class="v">${e.n}×</div><div class="s">${(e.min / 60).toFixed(1)} h${e.dist ? ` · ${(e.dist / MI).toFixed(1)} mi` : ''}</div></div>`).join('') || '<div class="rp-empty">Nothing in the last 30 days.</div>'}</div>
+    <div class="act-filters">${['all', ...order].map(k => `<button class="chip ${actFilter === k ? 'active' : ''}" data-af="${k}">${k === 'all' ? 'All' : catLabel(k)}</button>`).join('')}</div>
+    ${shown.slice(0, actShow).map(x => actRow(x)).join('')}
+    ${shown.length > actShow ? `<button class="btn-secondary act-more" data-act="more">Show more (${shown.length - actShow})</button>` : ''}`;
+}
+
+function actRow(x) {
+  const l = x.lift;
+  if (x.kind === 'lift') return `<div class="act-row" data-lift="${l.id}"><div class="act-head" data-act="toggle">
+      <div class="act-ic" style="background:rgba(125,184,81,.16)"><span class="tile-dot" style="background:#7DB851;width:10px;height:10px"></span></div>
+      <div class="act-main"><div class="act-name">${esc(l.name)}</div><div class="act-meta">${new Date(l.date + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })} · logged lift · ${l.exercises.length} exercise${l.exercises.length === 1 ? '' : 's'}</div></div></div>
+    <div class="act-body">${liftDetail(l)}</div></div>`;
+  const w = x.w, c = actCat(w.sport), d = new Date(w.start);
+  const zones = w.zones?.some(z => z) ? `<div class="zones">${w.zones.map((z, i) => `<i style="width:${(z / Math.max(1, w.zones.reduce((a, b) => a + b, 0))) * 100}%;background:${['#3A4038','#5E6B57','#7DB851','#C3D84F','#E0A84F','#E5654B'][i]}"></i>`).join('')}</div><div class="act-meta">heart-rate zones 0–5</div>` : '';
+  const isLift = c[0] === 'lifting';
+  return `<div class="act-row" data-wid="${w.id}"><div class="act-head" data-act="toggle">
+      <div class="act-ic" style="background:${c[3]}22;color:${c[3]}"><span class="tile-dot" style="background:${c[3]};width:10px;height:10px"></span></div>
+      <div class="act-main"><div class="act-name">${esc(prettySport(w.sport))}${l ? ' <span class="pr-badge" style="background:rgba(255,255,255,.14);color:#fff">SETS</span>' : ''}</div>
+        <div class="act-meta">${d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })} · ${d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })} · ${w.minutes}m${w.distanceM ? ` · ${(w.distanceM / MI).toFixed(2)} mi` : ''}</div></div>
+      <div class="act-strain"><div class="v">${w.strain ?? '—'}</div><div class="l">STRAIN</div></div></div>
+    <div class="act-body">
+      <div>${w.kcal ? `${w.kcal} kcal` : ''}${w.avgHr ? ` · avg HR ${w.avgHr}` : ''}${w.maxHr ? ` · max ${w.maxHr}` : ''}${w.altGainM ? ` · ${Math.round(w.altGainM * 3.281)} ft climb` : ''}</div>
+      ${zones}
+      ${l ? liftDetail(l) : isLift ? `<div class="hist-actions"><button class="btn-secondary" data-act="addsets">Add sets</button></div>` : ''}
+    </div></div>`;
+}
+function liftDetail(l) {
+  return `${l.exercises.map(ex => `<div><strong style="color:#fff;font-weight:500">${esc(ex.name)}</strong> — ${ex.sets.map(s => `${s.reps}×${s.weight}`).join(', ')}</div>`).join('')}
+    <div class="hist-actions"><button class="btn-secondary" data-act="repeat">Repeat</button><button class="btn-secondary" data-act="edit">Edit</button><button class="btn-secondary" data-act="del">Delete sets</button></div>`;
+}
+
 $('liftHistory').addEventListener('click', e => {
-  const b = e.target.closest('[data-h]'); if (!b) return;
-  const item = b.closest('.hist-item'), w = lifts.find(x => x.id === item.dataset.id);
-  if (b.dataset.h === 'toggle') return item.classList.toggle('open');
-  if (b.dataset.h === 'del') { lifts = lifts.filter(x => x.id !== w.id); saveLifts(); renderTrain(); return; }
-  liftDraft = newDraft(b.dataset.h === 'edit' ? { ...w, keepId: true } : w);
+  const f = e.target.closest('[data-af]');
+  if (f) { actFilter = f.dataset.af; actShow = 25; renderHistory(); return; }
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act;
+  if (a === 'more') { actShow += 25; renderHistory(); return; }
+  const row = b.closest('.act-row');
+  if (a === 'toggle') return row.classList.toggle('open');
+  const wid = row.dataset.wid, w = whoopWo?.workouts.find(x => x.id === wid);
+  const l = row.dataset.lift ? lifts.find(x => x.id === row.dataset.lift) : lifts.find(x => x.whoopId === wid);
+  if (a === 'del') { lifts = lifts.filter(x => x.id !== l.id); saveLifts(); renderTrain(); return; }
+  if (a === 'addsets') { liftDraft = newDraft(); liftDraft.date = w.date; liftDraft.whoopId = w.id; liftDraft.name = prettySport(w.sport); }
+  else liftDraft = newDraft(a === 'edit' ? { ...l, keepId: true } : l);
+  if (a === 'edit') liftDraft.whoopId = l.whoopId || null;
   renderLiftForm(); $('liftForm').scrollIntoView({ behavior:'smooth', block:'start' });
 });
 
 // Training context for the coach: recent sessions, strength trends, and whether the lifting stimulus is new/increased
+function activityContext() {
+  const wo = whoopWo?.workouts || [];
+  if (!wo.length) return 'ACTIVITIES (Whoop): none synced.';
+  const now = Date.now(), recent = wo.filter(w => now - Date.parse(w.start) < 14 * 86400000);
+  const by = new Map();
+  for (const w of wo.filter(w => now - Date.parse(w.start) < 30 * 86400000)) { const c = actCat(w.sport)[1]; const e = by.get(c) || { n:0, min:0, dist:0 }; e.n++; e.min += w.minutes; e.dist += w.distanceM || 0; by.set(c, e); }
+  return `ACTIVITIES (Whoop, all types):
+- Last 30 days: ${[...by].map(([c, e]) => `${c} ${e.n}× (${(e.min / 60).toFixed(1)} h${e.dist ? `, ${(e.dist / MI).toFixed(1)} mi` : ''})`).join(' · ') || 'none'}
+- Last 14 days:
+${recent.map(w => `  ${w.date} ${prettySport(w.sport)} ${w.minutes}m · strain ${w.strain ?? '—'}${w.kcal ? ` · ${w.kcal} kcal` : ''}${w.distanceM ? ` · ${(w.distanceM / MI).toFixed(1)} mi` : ''}${w.avgHr ? ` · avg HR ${w.avgHr}` : ''}`).join('\n') || '  (none)'}`;
+}
+
 function trainingContext() {
-  if (!lifts.length) return 'LIFTING: nothing logged yet.';
+  if (!lifts.length) return activityContext() + '\n\nLIFTING SETS: none logged yet.';
   const now = Date.now(), dayMs = 86400000;
   const recent = [...lifts].sort((a, b) => b.ts - a.ts).filter(w => now - w.ts < 14 * dayMs);
   const prev = lifts.filter(w => now - w.ts >= 14 * dayMs && now - w.ts < 42 * dayMs);
@@ -1111,7 +1235,9 @@ function trainingContext() {
   const trends = exerciseHistory().filter(x => x.points.length > 1).slice(0, 8).map(x => { const a = x.points[0], b = x.points[x.points.length - 1]; return `  ${x.name}: est. 1RM ${Math.round(a.best)} → ${Math.round(b.best)} lb (${a.date} → ${b.date})`; }).join('\n');
   const stimulus = recent.length && prev.length === 0 ? 'NEW lifting stimulus (no sessions in the 4 weeks before the last 2) — expect 2–3 weeks of water/glycogen retention on the scale; lean on trend direction, strength and body fat %.'
     : recent.length > (prev.length / 2) * 1.5 ? 'Lifting volume has INCREASED vs the prior month — some scale water retention is likely.' : 'Lifting frequency roughly steady.';
-  return `LIFTING (logged on phone, lb):
+  return `${activityContext()}
+
+LIFTING SETS (logged on phone, lb):
 - Last 14 days: ${recent.length} sessions
 ${sessions || '  (none)'}
 - Strength trends:
@@ -2026,7 +2152,7 @@ $('whoopBtns').onclick = async e => {
       store.set('mt_whoop_on', false); store.set('mt_whoop', null);
       setConnStatus('Whoop disconnected.', 'ok'); renderConnections(); renderToday();
     } else {
-      setConnStatus('Syncing Whoop…', ''); await syncWhoop(true); setConnStatus('Whoop synced.', 'ok');
+      setConnStatus('Syncing Whoop…', ''); await syncWhoop(true); await syncWhoopWorkouts(true); setConnStatus('Whoop synced.', 'ok');
     }
   } catch (err) { setConnStatus(err.message, 'err'); }
 };
@@ -2038,7 +2164,7 @@ async function refreshWhoopStatus(sync) {
     const st = await server('/whoop/status');
     whoopConnected = !!st.connected; store.set('mt_whoop_on', whoopConnected);
     if (!$('setup').classList.contains('hidden')) renderConnections();
-    if (whoopConnected && sync) await syncWhoop();
+    if (whoopConnected && sync) { await syncWhoop(); syncWhoopWorkouts(); }
   } catch {}
 }
 
@@ -2494,7 +2620,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.3';
+const BUILD = '2026-10-18.4';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();

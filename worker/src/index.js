@@ -55,6 +55,7 @@ export default {
         case 'POST /whoop/connect':   return json({ url: await whoop.authorizeUrl(env, url.origin) }, 200, env);
         case 'GET /whoop/status':     return json(await whoop.status(env), 200, env);
         case 'GET /whoop/days':       return json(await whoop.days(env, Math.min(+url.searchParams.get('days') || 14, 60)), 200, env);
+        case 'GET /whoop/workouts':   return json(await whoop.workouts(env, Math.min(+url.searchParams.get('days') || 365, 730)), 200, env);
         case 'POST /whoop/disconnect':await whoop.disconnect(env); return json({ ok: true }, 200, env);
         case 'POST /body':            return json(await body.add(env, await req.json().catch(() => ({}))), 200, env);
         case 'GET /body':             return json(await body.list(env, Math.min(+url.searchParams.get('days') || 120, 730)), 200, env);
