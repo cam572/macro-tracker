@@ -20,17 +20,27 @@ case "${1:-}" in
     openssl rand -base64 32 | npx wrangler secret put ENC_KEY >/dev/null
     appkey=$(openssl rand -hex 24)
     printf '%s' "$appkey" | npx wrangler secret put APP_KEY >/dev/null
+    # Key goes to a private file, not the terminal, so it never lands in logs or chat
+    umask 077; printf 'Coach server URL: %s\nServer key: %s\n' "$url" "$appkey" > SERVER_KEY.txt
     echo
     echo "✅ Server is live."
     echo "   Coach server URL:  $url"
-    echo "   Server key:        $appkey"
     echo "   Whoop redirect URL (paste into the Whoop developer dashboard):  $url/whoop/callback"
-    echo
-    echo "Paste the URL and key into the tracker: Setup → Connections. Keep the key private."
+    echo "   Server key saved to: $(pwd)/SERVER_KEY.txt  (paste it into the tracker: Setup → Connections)"
     ;;
   whoop)
     read -r -p "Whoop Client ID: " cid
-    read -r -s -p "Whoop Client Secret (hidden): " csec; echo
+    read -r -s -p "Whoop Client Secret (hidden — paste ONCE, then Enter): " csec; echo
+    csec=$(printf '%s' "$csec" | tr -d '[:space:]')
+    # Hidden input shows nothing, so a secret often gets pasted 2-6 times. Collapse exact repeats.
+    n=${#csec}
+    for k in 2 3 4 5 6 7 8; do
+      if [ $((n % k)) -eq 0 ]; then
+        part=${csec:0:$((n / k))}; rep=""; for ((i=0; i<k; i++)); do rep+="$part"; done
+        if [ "$rep" = "$csec" ]; then echo "  (looks like it was pasted $k times — using one copy)"; csec=$part; break; fi
+      fi
+    done
+    echo "  Got a ${#csec}-character secret."
     printf '%s' "$cid"  | npx wrangler secret put WHOOP_CLIENT_ID >/dev/null
     printf '%s' "$csec" | npx wrangler secret put WHOOP_CLIENT_SECRET >/dev/null
     echo "✅ Whoop credentials saved. In the tracker: Setup → Connections → Whoop → Connect."

@@ -1,3 +1,4 @@
 node_modules/
 .wrangler/
 .dev.vars
+SERVER_KEY.txt

@@ -24,13 +24,30 @@ async function loadTokens(env) {
 }
 
 async function tokenRequest(env, params) {
-  const res = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: env.WHOOP_CLIENT_ID, client_secret: env.WHOOP_CLIENT_SECRET, ...params }),
-  });
-  if (!res.ok) throw fail('whoop_token_' + res.status, 502, 'Whoop sign-in failed — try reconnecting Whoop.');
-  return res.json();
+  // Trim in case the secret was pasted with stray whitespace
+  const id = (env.WHOOP_CLIENT_ID || '').trim(), secret = (env.WHOOP_CLIENT_SECRET || '').trim();
+  // OAuth allows the client to authenticate in the body (client_secret_post) or via HTTP Basic
+  // (client_secret_basic). Try body first; if Whoop rejects the client, retry with Basic.
+  // A client-auth failure is checked before the code, so the code is still usable for the retry.
+  const attempts = [
+    { headers: {}, body: { client_id: id, client_secret: secret, ...params } },
+    { headers: { Authorization: 'Basic ' + btoa(`${encodeURIComponent(id)}:${encodeURIComponent(secret)}`) }, body: params },
+  ];
+  let last;
+  for (const [i, a] of attempts.entries()) {
+    const res = await fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...a.headers },
+      body: new URLSearchParams(a.body),
+    });
+    if (res.ok) { if (i) console.log('whoop token ok via basic auth'); return res.json(); }
+    // OAuth error codes/descriptions are safe to log; never log tokens or secrets
+    const body = await res.json().catch(() => ({}));
+    console.log('whoop token error', i ? 'basic' : 'post', res.status, body.error || '', body.error_description || '');
+    last = res.status;
+    if (body.error !== 'invalid_client') break;
+  }
+  throw fail('whoop_token_' + last, 502, 'Whoop sign-in failed — try reconnecting Whoop.');
 }
 
 async function refreshIfNeeded(env, withinSeconds = 60) {
@@ -147,10 +164,13 @@ export const whoop = {
 
   async handleCallback(url, env) {
     const state = url.searchParams.get('state'), code = url.searchParams.get('code');
-    if (!state || !code || !(await env.STORE.get('whoop:state:' + state))) return false;
+    if (url.searchParams.get('error')) { console.log('whoop callback error', url.searchParams.get('error'), url.searchParams.get('error_description') || ''); return false; }
+    if (!state || !code) { console.log('whoop callback missing', !state ? 'state' : 'code'); return false; }
+    if (!(await env.STORE.get('whoop:state:' + state))) { console.log('whoop callback unknown state'); return false; }
     await env.STORE.delete('whoop:state:' + state);
     const t = await tokenRequest(env, { grant_type: 'authorization_code', code, redirect_uri: redirectUri(url.origin) }).catch(() => null);
-    if (!t?.refresh_token) return false;
+    if (!t) return false;
+    if (!t.refresh_token) { console.log('whoop token response had no refresh_token; scopes:', t.scope || ''); return false; }
     await saveTokens(env, t);
     return true;
   },

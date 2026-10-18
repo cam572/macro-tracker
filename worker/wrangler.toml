@@ -8,7 +8,7 @@ APP_URL = "https://cam572.github.io/macro-tracker/"
 # Created with: npx wrangler kv namespace create STORE  (id filled in on first setup)
 [[kv_namespaces]]
 binding = "STORE"
-id = "REPLACE_WITH_KV_ID"
+id = "e2297c3c069c45d4a16945a2c7d506c0"
 
 # Keep the Whoop refresh token alive (and, later, poll LibreLinkUp)
 [triggers]
