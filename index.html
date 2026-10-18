@@ -1184,9 +1184,10 @@ function renderHistory() {
   for (const x of items) {
     if (x.ts < since) continue;
     const c = x.kind === 'whoop' ? actCat(x.w.sport) : ACT_CATS[0];
-    const e = sum.get(c[0]) || { c, n:0, min:0 }; e.n++; e.min += x.w?.minutes || 0; sum.set(c[0], e);
+    const e = sum.get(c[0]) || { c, n:0, min:0, dist:0 }; e.n++; e.min += x.w?.minutes || 0; e.dist += x.w?.distanceM || 0; sum.set(c[0], e);
   }
-  const strip = `<div class="ready-label" style="margin-bottom:8px">Last 30 days</div><div class="act-strip">${[...sum.values()].sort((a, b) => b.n - a.n).map(e => `<div class="act-pill"><span class="tile-dot" style="background:${e.c[3]}"></span>${e.c[1]} <b>${e.n}×</b><span class="m">${(e.min / 60).toFixed(1)}h</span></div>`).join('') || '<span class="rp-empty">Nothing in the last 30 days.</span>'}</div>`;
+  // Big count cards for the last 30 days
+  const strip = `<div class="ready-label" style="margin-bottom:8px">Last 30 days</div><div class="act-sum">${[...sum.values()].sort((a, b) => b.n - a.n).map(e => `<div class="act-sum-tile"><div class="k"><span class="tile-dot" style="background:${e.c[3]}"></span>${e.c[1]}</div><div class="v">${e.n}×</div><div class="s">${(e.min / 60).toFixed(1)} h${e.dist ? ` · ${(e.dist / MI).toFixed(1)} mi` : ''}</div></div>`).join('') || '<div class="rp-empty">Nothing in the last 30 days.</div>'}</div>`;
 
   if (!actFull) {
     $('liftHistory').innerHTML = `${strip}
@@ -2663,7 +2664,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.5';
+const BUILD = '2026-10-18.6';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
