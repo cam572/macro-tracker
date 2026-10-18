@@ -2,6 +2,7 @@
 # One-time setup for the Macro Coach server. Run from this folder after `npx wrangler login`.
 #   ./setup.sh deploy   → creates storage, generates keys, deploys, prints your server URL + key
 #   ./setup.sh whoop    → asks for your Whoop Client ID/Secret (hidden) and saves them as secrets
+#   ./setup.sh libre    → asks for your LibreLinkUp email/password (hidden) and saves them as secrets
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -45,5 +46,18 @@ case "${1:-}" in
     printf '%s' "$csec" | npx wrangler secret put WHOOP_CLIENT_SECRET >/dev/null
     echo "✅ Whoop credentials saved. In the tracker: Setup → Connections → Whoop → Connect."
     ;;
-  *) echo "Usage: ./setup.sh deploy | whoop"; exit 1 ;;
+  libre)
+    read -r -p "LibreLinkUp email (the follower account): " lemail
+    read -r -s -p "LibreLinkUp password (hidden — paste ONCE, then Enter): " lpass; echo
+    echo "  Got a ${#lpass}-character password."
+    printf '%s' "$lemail" | npx wrangler secret put LIBRE_EMAIL >/dev/null
+    printf '%s' "$lpass"  | npx wrangler secret put LIBRE_PASSWORD >/dev/null
+    echo "✅ LibreLinkUp login saved. Testing the connection..."
+    sleep 3
+    key=$(sed -n 's/^Server key: //p' SERVER_KEY.txt); url=$(sed -n 's/^Coach server URL: //p' SERVER_KEY.txt)
+    curl -s -X POST -H "Authorization: Bearer $key" "$url/libre/poll" | grep -q '"ok":true' \
+      && echo "✅ Libre 3 connected — readings are being collected every 15 minutes." \
+      || { echo "⚠️  Connection test failed:"; curl -s -X POST -H "Authorization: Bearer $key" "$url/libre/poll"; echo; }
+    ;;
+  *) echo "Usage: ./setup.sh deploy | whoop | libre"; exit 1 ;;
 esac

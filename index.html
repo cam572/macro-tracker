@@ -284,6 +284,18 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .conn-btns { display:flex; gap:6px; }
 .conn-btns .btn-secondary { padding:8px 12px; }
 
+/* Glucose (Libre 3) */
+.glu-card { background:var(--s1); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; }
+.glu-top { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.glu-val { font-family:var(--FD); font-size:46px; line-height:1; color:var(--text); }
+.glu-unit { font-family:var(--FM); font-size:10px; color:var(--muted); }
+.glu-trend { font-size:24px; line-height:1; color:var(--blue); }
+.glu-meta { margin-left:auto; text-align:right; font-family:var(--FM); font-size:10px; color:var(--muted); line-height:1.5; }
+.glu-chart { width:100%; height:90px; display:block; }
+.glu-stats { display:flex; justify-content:space-between; font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:6px; }
+.glu-badge { font-family:var(--FM); font-size:10px; color:var(--blue); margin-left:8px; white-space:nowrap; }
+.glu-badge.pending { color:var(--muted); }
+
 .rp-periods { display:flex; gap:6px; margin-bottom:14px; }
 .rp-score { display:flex; align-items:baseline; gap:10px; margin-bottom:14px; }
 .rp-score-num { font-family:var(--FD); font-size:56px; color:var(--lime); line-height:1; }
@@ -427,12 +439,16 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 
     <div class="settings-section">
       <div class="settings-section-title">Connections</div>
-      <div class="settings-section-sub">Your private coach server links Whoop (and soon Libre 3). These save as you type.</div>
+      <div class="settings-section-sub">Your private coach server links Whoop and Libre 3. These save as you type.</div>
       <div class="settings-field"><label>Coach server URL</label><input class="input-field" id="connUrl" placeholder="https://macro-coach.yourname.workers.dev" autocomplete="off" style="font-family:var(--FM);font-size:12px;"></div>
       <div class="settings-field"><label>Server key</label><input class="input-field" id="connKey" type="password" placeholder="Paste the key from setup" autocomplete="off" style="font-family:var(--FM);font-size:12px;"></div>
       <div class="conn-row">
         <div><div class="conn-name">WHOOP</div><div class="conn-state" id="whoopState">Not connected</div></div>
         <div class="conn-btns" id="whoopBtns"></div>
+      </div>
+      <div class="conn-row">
+        <div><div class="conn-name">LIBRE 3</div><div class="conn-state" id="libreState">Not set up</div></div>
+        <div class="conn-btns" id="libreBtns"></div>
       </div>
       <div class="settings-status" id="connStatus"></div>
     </div>
@@ -458,6 +474,7 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 
     <div class="macro-rings-row" id="rings"></div>
     <div id="readiness"></div>
+    <div id="glucose"></div>
 
     <!-- Fasting -->
     <div id="fastView" class="hidden">
@@ -757,6 +774,7 @@ function renderToday() {
   renderWeek();
   renderReport();
   renderReadiness();
+  renderGlucose();
 }
 
 function defaultSlot(sch) {
@@ -773,7 +791,7 @@ function renderFood(sch) {
     const st = totals(items.map(x => x.it));
     return `<div class="food-log-section">
       <div class="food-log-head">
-        <div><span class="food-log-meal-name">${esc(s.name)}</span></div>
+        <div><span class="food-log-meal-name">${esc(s.name)}</span>${mealBadge(todayKey, i)}</div>
         <span class="food-log-cals">${items.length ? r0(st.cal) + ' kcal · ' + r0(st.p) + 'P' : ''}</span>
       </div>
       ${items.length ? items.map(({ it, idx }) => `<div class="food-log-item">
@@ -980,9 +998,12 @@ ${sch.count === 0
 
 ${whoopContext()}
 
+${glucoseContext()}
+
 COACHING
 - Voice: functional-medicine coach — explain the likely root cause behind what the data shows and give specific next steps, personalized to this user's own patterns. Lifestyle and nutrition guidance only: no diagnoses, no medication advice; if something looks medically concerning, suggest talking to their clinician.
 - Training & recovery (when Whoop data is present): judge readiness against the user's OWN baselines (HRV and RHR vs their 14-day average, sleep vs their need, recent strain and how many hard days in a row) rather than fixed cut-offs. Recommend hard / moderate / light-or-recovery with a concrete session idea and a reason. If data is missing or Whoop is calibrating, say so and lean conservative. Suggest recovery days when the signals stack up, not on a fixed schedule.
+- Glucose (when CGM data is present): learn THIS user's responses from the meal-response list — which foods, combos, portions, times of day and pre/post-workout timing give them smaller rises and faster returns to baseline — and steer suggestions toward what works for them. Patterns like pairing carbs with protein/fat/fiber or walking after meals should be recommended because their data supports it (cite the meals), not as generic rules. With little data, be conservative and say you're still learning their patterns. If the sensor flags LOW/HIGH repeatedly, or values look concerning, suggest they talk to their clinician.
 - Meal timing (directional priors, refine to the user over time): place more of the day's carbs earlier and around training (before/after a workout), lighter carbs late; on low-recovery or short-sleep days, keep protein high and favor steadier, fiber-rich carbs.
 - Plan the rest of the day around the remaining macros AND the remaining meal count and time of day — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
 - Recommend specific foods and portions, not categories.
@@ -1502,6 +1523,10 @@ function renderConnections() {
   const synced = whoopData?.syncedAt ? ` · synced ${new Date(whoopData.syncedAt).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })}` : '';
   $('whoopState').textContent = whoopConnected ? 'Connected' + synced : 'Not connected';
   $('whoopState').className = 'conn-state' + (whoopConnected ? ' on' : '');
+  const ls = gluData?.status;
+  $('libreState').textContent = !ls?.configured ? 'Not set up on the server' : ls.lastError ? `Sync issue (${ls.lastError.replace(/^libre_/, '').replace(/_/g, ' ')})` : `Connected${ls.latest ? ' · last reading ' + new Date(ls.latest.t * 1000).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }) : ''}`;
+  $('libreState').className = 'conn-state' + (ls?.configured && !ls.lastError ? ' on' : '');
+  $('libreBtns').innerHTML = `<button class="btn-secondary" data-l="sync">Sync</button>`;
   $('whoopBtns').innerHTML = whoopConnected
     ? `<button class="btn-secondary" data-w="sync">Sync</button><button class="btn-secondary" data-w="off">Disconnect</button>`
     : `<button class="btn-secondary" data-w="on">Connect</button>`;
@@ -1510,6 +1535,11 @@ const saveConn = () => { conn = { url: $('connUrl').value.trim(), key: $('connKe
 $('connUrl').oninput = saveConn; $('connKey').oninput = saveConn;
 $('connUrl').onchange = $('connKey').onchange = () => { saveConn(); if (conn.url && conn.key) refreshWhoopStatus(true); };
 
+$('libreBtns').onclick = async e => {
+  if (!e.target.closest('[data-l]')) return;
+  try { setConnStatus('Syncing Libre 3…', ''); await server('/libre/poll', { method:'POST' }); await syncGlucose(true); setConnStatus('Libre 3 synced.', 'ok'); }
+  catch (err) { setConnStatus(err.message, 'err'); }
+};
 $('whoopBtns').onclick = async e => {
   const b = e.target.closest('[data-w]'); if (!b) return;
   try {
@@ -1532,6 +1562,7 @@ $('whoopBtns').onclick = async e => {
 
 async function refreshWhoopStatus(sync) {
   if (!conn.url || !conn.key) return;
+  if (sync) syncGlucose();
   try {
     const st = await server('/whoop/status');
     whoopConnected = !!st.connected; store.set('mt_whoop_on', whoopConnected);
@@ -1612,9 +1643,138 @@ function whoopContext() {
 ${recent || '  (none)'}`;
 }
 
+/* ═══════════════════════════════ GLUCOSE (Libre 3) */
+// Readings come from the coach server, which collects LibreLinkUp every 15 min. Cached on-device.
+let gluData = store.get('mt_glu', null);    // { syncedAt, readings:[[sec, mgdl], ...], status }
+const GLU_STALE_MS = 10 * 60 * 1000;
+const TREND = { 1:'↓', 2:'↘', 3:'→', 4:'↗', 5:'↑' };
+
+async function syncGlucose(force) {
+  if (!conn.url || !conn.key) return;
+  if (!force && gluData && Date.now() - Date.parse(gluData.syncedAt) < GLU_STALE_MS) return;
+  try {
+    const d = await server('/libre/readings?hours=336'); // 14 days for personal response history
+    if (!d.status?.configured) { gluData = null; store.set('mt_glu', null); }
+    else { gluData = { syncedAt: new Date().toISOString(), readings: d.readings, status: d.status }; store.set('mt_glu', gluData); }
+  } catch (err) { if (force) throw err; }
+  renderToday();
+  if (!$('setup').classList.contains('hidden')) renderConnections();
+}
+
+const gluReadings = () => gluData?.readings || [];
+function readingsBetween(fromMs, toMs) { const a = fromMs / 1000, b = toMs / 1000; return gluReadings().filter(p => p[0] >= a && p[0] <= b); }
+const median = arr => { const s = [...arr].sort((x, y) => x - y); const m = s.length >> 1; return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : null; };
+
+// Group a day's items into meals (same slot, eaten within ~45 min) anchored at the first bite
+function mealsForDay(dk) {
+  const log = dk === todayKey ? day : loadDay(dk);
+  const sched = S.schedule[dayIdx(new Date(dk + 'T12:00:00'))] || { count:3 };
+  const meals = [];
+  for (const it of [...log.items].filter(i => i.ts).sort((a, b) => a.ts - b.ts)) {
+    const slot = itemSlot(it, Math.max(1, sched.count));
+    const m = meals.find(x => x.slot === slot && it.ts - x.ts < 45 * 60000);
+    if (m) { m.items.push(it); } else meals.push({ dk, slot, ts: it.ts, items: [it] });
+  }
+  return meals;
+}
+
+// Post-meal response measured against the user's own pre-meal baseline (no population cut-offs)
+function mealResponse(meal, nextMealTs) {
+  const pre = readingsBetween(meal.ts - 30 * 60000, meal.ts + 5 * 60000).map(p => p[1]);
+  const post = readingsBetween(meal.ts, meal.ts + 3 * 3600000);
+  if (!pre.length || post.length < 3) return null;
+  const baseline = median(pre);
+  let peak = post[0];
+  for (const p of post) if (p[1] > peak[1]) peak = p;
+  const rise = Math.max(0, peak[1] - baseline);
+  // "Back to baseline": first reading after the peak within 20% of the rise above baseline
+  const back = post.find(p => p[0] > peak[0] && p[1] <= baseline + rise * 0.2);
+  // Incremental area under the curve over 2h (mg/dL·h above baseline)
+  let auc = 0;
+  const win = post.filter(p => p[0] <= meal.ts / 1000 + 7200);
+  for (let i = 1; i < win.length; i++) {
+    const dt = (win[i][0] - win[i - 1][0]) / 3600;
+    auc += dt * (Math.max(0, win[i][1] - baseline) + Math.max(0, win[i - 1][1] - baseline)) / 2;
+  }
+  const elapsedMin = (Math.min(Date.now(), meal.ts + 3 * 3600000) - meal.ts) / 60000;
+  return {
+    baseline: Math.round(baseline), peak: peak[1], rise: Math.round(rise),
+    peakMin: Math.round((peak[0] * 1000 - meal.ts) / 60000),
+    backMin: back ? Math.round((back[0] * 1000 - meal.ts) / 60000) : null,
+    auc: Math.round(auc), complete: elapsedMin >= 120,
+    overlapped: !!(nextMealTs && nextMealTs - meal.ts < 2 * 3600000),
+  };
+}
+
+function dayMealResponses(dk) {
+  const meals = mealsForDay(dk);
+  return meals.map((m, i) => ({ ...m, resp: mealResponse(m, meals[i + 1]?.ts) }));
+}
+
+function mealBadge(dk, slot) {
+  if (!gluData) return '';
+  const m = dayMealResponses(dk).filter(x => x.slot === slot && x.resp).pop();
+  if (!m) return '';
+  const r = m.resp;
+  return `<span class="glu-badge ${r.complete ? '' : 'pending'}" title="Glucose response vs your pre-meal baseline">↑${r.rise} · peak ${r.peakMin}m${r.complete ? '' : ' …'}</span>`;
+}
+
+function renderGlucose() {
+  const st = gluData?.status;
+  if (!gluData || !st?.configured) { $('glucose').innerHTML = ''; return; }
+  const now = Date.now(), from = now - 12 * 3600000;
+  const pts = readingsBetween(from, now);
+  const latest = st.latest;
+  const ageMin = latest ? Math.round((now - latest.t * 1000) / 60000) : null;
+  // Chart scaled to the user's own 12h range (with padding), meals marked
+  let chart = '<div class="rp-empty" style="margin:20px 0;text-align:center;">Waiting for readings…</div>';
+  if (pts.length > 1) {
+    const vals = pts.map(p => p[1]), lo = Math.min(...vals) - 10, hi = Math.max(...vals) + 10;
+    const X = t => ((t * 1000 - from) / (now - from)) * 300, Y = v => 86 - ((v - lo) / (hi - lo)) * 80;
+    const path = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('');
+    const meals = [...mealsForDay(todayKey), ...mealsForDay(dateKey(new Date(now - 86400000)))].filter(m => m.ts >= from);
+    const marks = meals.map(m => `<line x1="${X(m.ts / 1000)}" x2="${X(m.ts / 1000)}" y1="4" y2="88" stroke="var(--lime)" stroke-width="1" stroke-dasharray="2 3" opacity=".7"/><circle cx="${X(m.ts / 1000)}" cy="6" r="2.5" fill="var(--lime)"/>`).join('');
+    chart = `<svg class="glu-chart" viewBox="0 0 300 90" preserveAspectRatio="none">${marks}<path d="${path}" fill="none" stroke="var(--blue)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+  }
+  const day24 = readingsBetween(now - 86400000, now).map(p => p[1]);
+  const avg = day24.length ? Math.round(day24.reduce((a, b) => a + b, 0) / day24.length) : null;
+  const flag = latest?.isLow ? 'var(--orange)' : latest?.isHigh ? 'var(--orange)' : 'var(--text)';
+  $('glucose').innerHTML = `<div class="glu-card">
+    <div class="glu-top">
+      <div class="glu-val" style="color:${flag}">${latest?.v ?? '—'}</div>
+      <div><div class="glu-trend">${latest ? TREND[latest.trend] || '' : ''}</div><div class="glu-unit">mg/dL</div></div>
+      <div class="glu-meta">LIBRE 3<br>${ageMin == null ? 'no reading' : ageMin < 1 ? 'just now' : ageMin + ' min ago'}${st.lastError ? '<br><span style="color:var(--orange)">sync issue</span>' : ''}</div>
+    </div>
+    ${chart}
+    <div class="glu-stats"><span>12h · meals marked</span><span>${day24.length ? `24h avg ${avg} · ${Math.min(...day24)}–${Math.max(...day24)}` : ''}</span></div>
+  </div>`;
+}
+
+// Glucose context for the coach — personal responses, no fixed physiological thresholds
+function glucoseContext() {
+  const st = gluData?.status;
+  if (!gluData || !st?.configured) return 'GLUCOSE (Libre 3): not connected.';
+  const now = Date.now(), latest = st.latest;
+  const d24 = readingsBetween(now - 86400000, now).map(p => p[1]);
+  const lines = [];
+  for (let i = 13; i >= 0; i--) {
+    const dk = dateKey(new Date(now - i * 86400000));
+    for (const m of dayMealResponses(dk)) {
+      if (!m.resp) continue;
+      const t = totals(m.items), r = m.resp;
+      lines.push(`  ${dk} ${new Date(m.ts).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })} — ${m.items.map(x => x.name).join(' + ')} (${r0(t.cal)} kcal, ${r0(t.p)}P/${r0(t.c)}C/${r0(t.s)}S/${r0(t.f)}F): baseline ${r.baseline} → peak ${r.peak} (+${r.rise}) at ${r.peakMin}m, ${r.backMin != null ? `back near baseline by ${r.backMin}m` : 'not back to baseline within 3h'}, 2h iAUC ${r.auc}${r.complete ? '' : ' [still in progress]'}${r.overlapped ? ' [another meal within 2h — confounded]' : ''}`);
+    }
+  }
+  return `GLUCOSE (Libre 3 CGM, mg/dL):
+- Now: ${latest ? `${latest.v} ${TREND[latest.trend] || ''} (${Math.round((now - latest.t * 1000) / 60000)} min ago)${latest.isLow ? ' — sensor flags LOW' : latest.isHigh ? ' — sensor flags HIGH' : ''}` : 'no current reading (sensor warm-up or gap)'}
+- Last 24h: ${d24.length ? `avg ${Math.round(d24.reduce((a, b) => a + b, 0) / d24.length)}, range ${Math.min(...d24)}–${Math.max(...d24)} (${d24.length} readings)` : 'no readings'}
+- Meal responses (last 14 days, vs that meal's own pre-meal baseline):
+${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the sensor)'}`;
+}
+
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-17.2';
+const BUILD = '2026-10-17.3';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
