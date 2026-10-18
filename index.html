@@ -514,6 +514,59 @@ body { background:var(--bg); overflow-x:hidden; }
 #tab-coach .chat-input-row textarea { background:rgba(255,255,255,.06) !important; }
 .clear-btn { background:rgba(255,255,255,.06); border:1px solid var(--border); color:rgba(255,255,255,.7); border-radius:12px; padding:7px 12px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-family:var(--FB); cursor:pointer; }
 
+/* Train tab */
+.call-card { padding:18px; }
+.call-top { display:flex; align-items:center; gap:14px; }
+.call-badge { font-size:26px; font-weight:600; letter-spacing:-.02em; }
+.call-sub { font-size:13px; color:rgba(255,255,255,.62); margin-top:2px; }
+.call-why { margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+.call-why div { font-size:13px; color:rgba(255,255,255,.78); display:flex; gap:8px; }
+.call-why div::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--acc1); margin-top:7px; flex-shrink:0; }
+.call-actions { display:flex; gap:8px; margin-top:14px; }
+.call-actions button { flex:1; padding:11px; font-size:12px; }
+.strain-card { padding:16px; }
+.strain-top { display:flex; align-items:baseline; justify-content:space-between; }
+.strain-big { font-size:38px; font-weight:600; letter-spacing:-.02em; line-height:1; color:var(--lime); }
+.strain-chart { display:flex; align-items:flex-end; gap:8px; height:90px; margin-top:14px; position:relative; }
+.strain-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; }
+.strain-bar { width:100%; max-width:30px; border-radius:7px 7px 3px 3px; background:linear-gradient(180deg, var(--acc1), var(--acc3)); min-height:3px; }
+.strain-bar.today { background:linear-gradient(180deg, #DDE3D8, #8C948A); }
+.strain-lbl { font-size:10px; color:rgba(255,255,255,.5); }
+.strain-avg { position:absolute; left:0; right:0; border-top:1px dashed rgba(255,255,255,.22); pointer-events:none; }
+.wo-row { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.wo-row:last-child { border-bottom:none; }
+.wo-row span:last-child { font-family:var(--FM); font-size:11px; color:rgba(255,255,255,.55); white-space:nowrap; }
+.lift-form { padding:16px; }
+.lf-ex { background:rgba(255,255,255,.035); border:1px solid var(--border); border-radius:16px; padding:12px; margin-top:10px; }
+.lf-ex-head { display:flex; gap:8px; align-items:center; }
+.lf-ex-head .input-field { flex:1; font-weight:500; }
+.lf-set { display:grid; grid-template-columns:30px 1fr 18px 1fr 28px; gap:6px; align-items:center; margin-top:8px; }
+.lf-set .n { font-family:var(--FM); font-size:11px; color:rgba(255,255,255,.45); text-align:center; }
+.lf-set .x { text-align:center; color:rgba(255,255,255,.4); font-size:12px; }
+.lf-set input { padding:9px 8px !important; text-align:center; font-family:var(--FM); font-size:14px; }
+.lf-del { background:none; border:none; color:rgba(255,255,255,.35); font-size:15px; cursor:pointer; }
+.lf-del:hover { color:var(--red); }
+.lf-add { background:none; border:1px dashed var(--border2); border-radius:12px; color:rgba(255,255,255,.65); padding:9px; width:100%; margin-top:8px; font-family:var(--FB); font-size:12px; cursor:pointer; }
+.lf-add:hover { border-color:var(--acc1); color:var(--lime); }
+.repeat-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.trend-row { display:grid; grid-template-columns:1fr 92px auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+.trend-row:last-child { border-bottom:none; }
+.trend-name { font-size:14px; font-weight:500; }
+.trend-meta { font-family:var(--FM); font-size:10px; color:rgba(255,255,255,.5); margin-top:2px; }
+.trend-val { text-align:right; font-size:20px; font-weight:600; letter-spacing:-.02em; }
+.trend-val small { font-size:11px; color:rgba(255,255,255,.5); font-weight:400; margin-left:2px; }
+.trend-delta { font-family:var(--FM); font-size:10px; text-align:right; }
+.pr-badge { display:inline-block; font-size:9px; letter-spacing:.08em; font-weight:600; color:var(--ink); background:linear-gradient(120deg, var(--acc1), var(--acc2)); border-radius:6px; padding:2px 5px; margin-left:6px; vertical-align:2px; }
+.hist-item { border-bottom:1px solid var(--border); }
+.hist-item:last-child { border-bottom:none; }
+.hist-head { display:flex; justify-content:space-between; gap:10px; padding:11px 0; cursor:pointer; }
+.hist-name { font-size:14px; font-weight:500; }
+.hist-meta { font-family:var(--FM); font-size:10px; color:rgba(255,255,255,.5); margin-top:2px; }
+.hist-body { display:none; padding:0 0 12px; font-size:13px; color:rgba(255,255,255,.75); line-height:1.7; }
+.hist-item.open .hist-body { display:block; }
+.hist-actions { display:flex; gap:8px; margin-top:8px; }
+.hist-actions button { padding:7px 12px; font-size:11px; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -588,6 +641,20 @@ body { background:var(--bg); overflow-x:hidden; }
       <div id="foodLog"></div>
     </div>
 
+  </section>
+
+  <!-- ═══════════ TRAIN ═══════════ -->
+  <section class="tab-panel" id="tab-train" data-tab="train">
+    <div class="section-label first">Today's call</div>
+    <div class="call-card glass" id="trainCall"></div>
+    <div class="section-label">Strain</div>
+    <div class="strain-card glass" id="trainStrain"></div>
+    <div class="section-label">Log a workout</div>
+    <div class="lift-form glass" id="liftForm"></div>
+    <div class="section-label">Strength trends</div>
+    <div class="card" id="liftTrends"></div>
+    <div class="section-label">Workout history</div>
+    <div class="card" id="liftHistory"></div>
   </section>
 
   <!-- ═══════════ INSIGHTS ═══════════ -->
@@ -718,7 +785,7 @@ body { background:var(--bg); overflow-x:hidden; }
 <nav class="tabbar" id="tabbar">
   <button class="tb on" data-go="today"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>Today</button>
   <button class="tb" data-go="log"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Log</button>
-  <button class="tb-plus" id="quickAdd" aria-label="Add food">+</button>
+  <button class="tb" data-go="train"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg></span>Train</button>
   <button class="tb" data-go="insights"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>Insights</button>
   <button class="tb" data-go="coach"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>Coach</button>
 </nav>
@@ -871,6 +938,187 @@ $('saveSetup').onclick = () => {
   renderToday();
 };
 
+/* ═══════════════════════════════ TRAIN (strain + lifting) */
+// Lifts live on this phone: [{ id, date, ts, name, exercises:[{ name, sets:[{ reps, weight }] }] }], weights in lb.
+let lifts = store.get('mt_lifts', []);
+let liftDraft = null;
+const saveLifts = () => store.set('mt_lifts', lifts);
+const COMMON_LIFTS = ['Back squat','Front squat','Deadlift','Romanian deadlift','Bench press','Incline bench press','Incline DB press','Overhead press','Pull-up','Lat pulldown','Barbell row','Cable row','Leg press','Hip thrust','Bulgarian split squat','DB curl','Tricep pushdown','Lateral raise','Leg curl','Leg extension'];
+const e1rm = st => st.weight > 0 && st.reps > 0 ? st.weight * (1 + Math.min(st.reps, 12) / 30) : 0; // Epley, capped for high reps
+const exKey = n => String(n || '').trim().toLowerCase();
+
+function exerciseHistory() {
+  const m = new Map();
+  for (const w of [...lifts].sort((a, b) => a.ts - b.ts)) for (const ex of w.exercises) {
+    const k = exKey(ex.name); if (!k) continue;
+    const best = Math.max(0, ...ex.sets.map(e1rm));
+    const top = ex.sets.reduce((a, b) => (e1rm(b) > e1rm(a) ? b : a), ex.sets[0] || { reps:0, weight:0 });
+    if (!m.has(k)) m.set(k, { name: ex.name.trim(), points: [] });
+    m.get(k).points.push({ date: w.date, best, top, volume: ex.sets.reduce((a, s) => a + (s.reps || 0) * (s.weight || 0), 0) });
+  }
+  return [...m.values()];
+}
+
+// Readiness call relative to the user's own baselines (Whoop bands only for the recovery score itself)
+function trainingCall() {
+  const w = whoopConnected && whoopSummary();
+  if (!w?.current?.recovery) return { level: null, why: [whoopConnected ? 'Waiting for your next scored recovery.' : 'Connect Whoop in Settings for daily readiness.'] };
+  const rec = w.current.recovery, sl = w.current.sleep, base = w.base, why = [];
+  let score = rec.score >= 67 ? 2 : rec.score >= 34 ? 1 : 0;
+  why.push(`Recovery ${rec.score}%${w.stale ? ' (last scored)' : ''}`);
+  if (rec.hrv != null && base.hrv) { const d = (rec.hrv - base.hrv) / base.hrv; why.push(`HRV ${Math.round(rec.hrv)} ms — ${d >= 0 ? 'above' : 'below'} your ${Math.round(base.hrv)} avg`); if (d < -0.12) score -= 1; }
+  if (rec.rhr != null && base.rhr && rec.rhr - base.rhr >= 4) { why.push(`Resting HR ${rec.rhr}, up ${Math.round(rec.rhr - base.rhr)} on your avg`); score -= 1; }
+  if (sl?.hours != null && sl.needHours) { why.push(`Slept ${sl.hours}h of ${sl.needHours}h needed`); if (sl.hours < sl.needHours * 0.8) score -= 1; }
+  const recent = w.prior.slice(-3), hard = recent.filter(d => d.strain?.score != null && base.strain && d.strain.score > base.strain * 1.1).length;
+  if (hard >= 2) { why.push(`${hard} of the last 3 days above your usual strain`); score -= 1; }
+  if (rec.calibrating) why.push('Whoop is still calibrating — low confidence');
+  const level = score >= 2 ? 'push' : score >= 1 ? 'moderate' : 'recover';
+  return { level, why };
+}
+
+function renderTrain(fromSync) {
+  // Today's call
+  const c = trainingCall();
+  const look = { push:['Push it', 'Good day for a hard session or a PR attempt.', 'var(--lime)'], moderate:['Train smart', 'Solid work, but leave a rep or two in the tank.', '#E6EAE2'], recover:['Recover', 'Mobility, zone 2 or a walk — let your body catch up.', 'var(--orange)'] }[c.level] || ['—', '', 'var(--muted)'];
+  $('trainCall').innerHTML = `<div class="call-top"><div><div class="call-badge" style="color:${look[2]}">${look[0]}</div><div class="call-sub">${look[1]}</div></div></div>
+    <div class="call-why">${c.why.map(x => `<div>${esc(x)}</div>`).join('')}</div>
+    <div class="call-actions"><button class="btn-secondary" data-ask="Plan my training session for today based on my recovery and recent lifts.">Plan today's session</button><button class="btn-secondary" data-ask="Should I lift today?">Should I lift?</button></div>`;
+
+  // Strain
+  const wd = whoopData?.days || [];
+  const last7 = []; for (let i = 6; i >= 0; i--) { const dk = dateKey(new Date(Date.now() - i * 86400000)); last7.push({ dk, d: wd.find(x => x.date === dk) }); }
+  const vals = last7.map(x => x.d?.strain?.score ?? 0), max = Math.max(21, ...vals);
+  const avg = avgOf(vals.slice(0, 6).filter(v => v > 0));
+  const todayStrain = last7[6].d?.strain?.score;
+  const wos = wd.flatMap(d => d.workouts.map(x => ({ ...x, date: d.date }))).sort((a, b) => b.start.localeCompare(a.start)).slice(0, 5);
+  $('trainStrain').innerHTML = !whoopConnected ? '<div class="rp-empty">Connect Whoop in Settings to see strain.</div>' : `
+    <div class="strain-top"><div><div class="ready-label">Today's strain</div><div class="strain-big">${todayStrain != null ? todayStrain.toFixed(1) : '—'}</div></div>
+      <div class="ready-sub" style="text-align:right">${avg ? `6-day avg ${avg.toFixed(1)}` : ''}<br>Whoop 0–21 scale</div></div>
+    <div class="strain-chart">${avg ? `<div class="strain-avg" style="bottom:${(avg / max) * 70 + 16}px"></div>` : ''}${last7.map((x, i) => `<div class="strain-col"><div class="strain-bar ${i === 6 ? 'today' : ''}" style="height:${((x.d?.strain?.score ?? 0) / max) * 70}px"></div><div class="strain-lbl">${new Date(x.dk + 'T12:00:00').toLocaleDateString(undefined, { weekday:'narrow' })}</div></div>`).join('')}</div>
+    ${wos.length ? `<div style="margin-top:12px">${wos.map(x => `<div class="wo-row"><span>${esc(x.sport)} · ${new Date(x.start).toLocaleDateString(undefined, { weekday:'short' })}</span><span>${x.minutes}m · strain ${x.strain ?? '—'}${x.kcal ? ` · ${x.kcal} kcal` : ''}</span></div>`).join('')}</div>` : ''}`;
+  $('trainCall').querySelectorAll('[data-ask]').forEach(b => b.onclick = () => { showTab('coach'); sendChat(b.dataset.ask); });
+
+  if (!fromSync || !liftDraft) renderLiftForm(); // never yank the form out from under someone typing
+  renderTrends(); renderHistory();
+}
+
+function newDraft(from) {
+  return {
+    id: from?.keepId ? from.id : null, date: from?.keepId ? from.date : todayKey, name: from?.name || '',
+    exercises: from ? from.exercises.map(ex => ({ name: ex.name, sets: ex.sets.map(st => ({ ...st })) })) : [{ name:'', sets:[{ reps:'', weight:'' }] }],
+  };
+}
+function renderLiftForm() {
+  if (!liftDraft) {
+    const names = [...new Set([...lifts].sort((a, b) => b.ts - a.ts).map(w => w.name).filter(Boolean))].slice(0, 4);
+    $('liftForm').innerHTML = `<button class="btn-primary" data-lf="start">Start a workout</button>
+      ${names.length ? `<div class="repeat-row">${names.map(n => `<button class="chip" data-lf="repeat" data-name="${esc(n)}">Repeat ${esc(n)}</button>`).join('')}</div>` : '<div class="ready-sub" style="margin-top:10px">Log exercises as sets × reps × weight. Your strength trends build from here.</div>'}`;
+    return;
+  }
+  const d = liftDraft;
+  $('liftForm').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 130px;gap:8px">
+      <input class="input-field" data-f="name" placeholder="Session (e.g. Push, Legs)" value="${esc(d.name)}">
+      <input class="input-field" type="date" data-f="date" value="${d.date}" style="color-scheme:dark;font-family:var(--FM);font-size:12px">
+    </div>
+    <datalist id="liftNames">${[...new Set([...exerciseHistory().map(x => x.name), ...COMMON_LIFTS])].map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    ${d.exercises.map((ex, ei) => `<div class="lf-ex">
+      <div class="lf-ex-head"><input class="input-field" list="liftNames" data-ex="${ei}" placeholder="Exercise" value="${esc(ex.name)}"><button class="lf-del" data-lf="delex" data-ei="${ei}" aria-label="Remove exercise">✕</button></div>
+      ${ex.sets.map((st, si) => `<div class="lf-set"><span class="n">${si + 1}</span>
+        <input class="input-field" type="number" inputmode="numeric" data-ei="${ei}" data-si="${si}" data-k="reps" placeholder="reps" value="${st.reps}">
+        <span class="x">×</span>
+        <input class="input-field" type="number" inputmode="decimal" data-ei="${ei}" data-si="${si}" data-k="weight" placeholder="lb" value="${st.weight}">
+        <button class="lf-del" data-lf="delset" data-ei="${ei}" data-si="${si}" aria-label="Remove set">✕</button></div>`).join('')}
+      <button class="lf-add" data-lf="addset" data-ei="${ei}">+ Set</button>
+    </div>`).join('')}
+    <button class="lf-add" data-lf="addex" style="margin-top:10px">+ Exercise</button>
+    <div class="call-actions"><button class="btn-secondary" data-lf="cancel">Cancel</button><button class="btn-primary" data-lf="save" style="flex:2">${d.id ? 'Save changes' : 'Save workout'}</button></div>
+    <div class="ai-status" id="liftStatus"></div>`;
+}
+$('liftForm').addEventListener('input', e => {
+  const t = e.target, d = liftDraft; if (!d) return;
+  if (t.dataset.f) d[t.dataset.f] = t.value;
+  else if (t.dataset.ex != null) d.exercises[+t.dataset.ex].name = t.value;
+  else if (t.dataset.k) d.exercises[+t.dataset.ei].sets[+t.dataset.si][t.dataset.k] = t.value;
+});
+$('liftForm').addEventListener('click', e => {
+  const b = e.target.closest('[data-lf]'); if (!b) return;
+  const a = b.dataset.lf, ei = +b.dataset.ei, si = +b.dataset.si;
+  if (a === 'start') liftDraft = newDraft();
+  if (a === 'repeat') { const last = [...lifts].sort((x, y) => y.ts - x.ts).find(w => w.name === b.dataset.name); liftDraft = newDraft(last); }
+  if (a === 'cancel') liftDraft = null;
+  if (a === 'addex') liftDraft.exercises.push({ name:'', sets:[{ reps:'', weight:'' }] });
+  if (a === 'delex') { liftDraft.exercises.splice(ei, 1); if (!liftDraft.exercises.length) liftDraft.exercises.push({ name:'', sets:[{ reps:'', weight:'' }] }); }
+  if (a === 'addset') { const sets = liftDraft.exercises[ei].sets, prev = sets[sets.length - 1] || {}; sets.push({ reps: prev.reps || '', weight: prev.weight || '' }); }
+  if (a === 'delset') { const sets = liftDraft.exercises[ei].sets; sets.splice(si, 1); if (!sets.length) sets.push({ reps:'', weight:'' }); }
+  if (a === 'save') {
+    const d = liftDraft;
+    const exercises = d.exercises.map(ex => ({ name: ex.name.trim(), sets: ex.sets.map(st => ({ reps: parseInt(st.reps) || 0, weight: parseFloat(st.weight) || 0 })).filter(st => st.reps > 0) })).filter(ex => ex.name && ex.sets.length);
+    if (!exercises.length) { $('liftStatus').textContent = 'Add at least one exercise with a set.'; $('liftStatus').className = 'ai-status err'; return; }
+    const date = d.date || todayKey;
+    const rec = { id: d.id || crypto.randomUUID(), date, ts: d.id ? (lifts.find(w => w.id === d.id)?.ts || Date.now()) : (date === todayKey ? Date.now() : Date.parse(date + 'T18:00:00')), name: d.name.trim() || 'Workout', exercises };
+    lifts = lifts.filter(w => w.id !== rec.id).concat(rec); saveLifts();
+    // Lifting is a context flag for reading the scale (water retention after training)
+    const log = date === todayKey ? day : loadDay(date); log.flags = { ...(log.flags || {}), lift: true }; saveDay(date, log); if (date === todayKey) day = log;
+    liftDraft = null; renderTrain(); renderToday();
+    return;
+  }
+  renderLiftForm();
+});
+
+function renderTrends() {
+  const hist = exerciseHistory().filter(x => x.points.some(p => p.best > 0)).sort((a, b) => b.points.length - a.points.length || a.name.localeCompare(b.name));
+  if (!hist.length) { $('liftTrends').innerHTML = '<div class="rp-empty">Log a few workouts and your strength trends show up here.</div>'; return; }
+  $('liftTrends').innerHTML = hist.slice(0, 12).map(x => {
+    const pts = x.points.filter(p => p.best > 0), last = pts[pts.length - 1], first = pts[0];
+    const prevBest = Math.max(0, ...pts.slice(0, -1).map(p => p.best));
+    const pr = pts.length > 1 && last.best > prevBest;
+    const vals = pts.slice(-10).map(p => p.best), lo = Math.min(...vals), hi = Math.max(...vals);
+    const spark = vals.length > 1 ? `<svg viewBox="0 0 92 28" width="92" height="28" preserveAspectRatio="none"><path d="${vals.map((v, i) => `${i ? 'L' : 'M'}${(i / (vals.length - 1)) * 92},${26 - ((v - lo) / Math.max(1, hi - lo)) * 22}`).join('')}" fill="none" stroke="var(--acc1)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>` : '';
+    const delta = pts.length > 1 ? last.best - first.best : null;
+    return `<div class="trend-row"><div><div class="trend-name">${esc(x.name)}${pr ? '<span class="pr-badge">PR</span>' : ''}</div><div class="trend-meta">best set ${last.top.reps}×${last.top.weight} · ${pts.length} session${pts.length === 1 ? '' : 's'}</div></div>
+      <div>${spark}</div>
+      <div><div class="trend-val">${Math.round(last.best)}<small>e1RM</small></div><div class="trend-delta" style="color:${delta > 0 ? 'var(--lime)' : delta < 0 ? 'var(--orange)' : 'rgba(255,255,255,.45)'}">${delta == null ? 'first log' : `${delta > 0 ? '+' : ''}${Math.round(delta)} since ${new Date(first.date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' })}`}</div></div></div>`;
+  }).join('');
+}
+
+function renderHistory() {
+  const list = [...lifts].sort((a, b) => b.ts - a.ts).slice(0, 30);
+  if (!list.length) { $('liftHistory').innerHTML = '<div class="rp-empty">No workouts logged yet.</div>'; return; }
+  $('liftHistory').innerHTML = list.map(w => {
+    const vol = w.exercises.reduce((a, ex) => a + ex.sets.reduce((b, s) => b + s.reps * s.weight, 0), 0);
+    return `<div class="hist-item" data-id="${w.id}"><div class="hist-head" data-h="toggle"><div><div class="hist-name">${esc(w.name)}</div><div class="hist-meta">${new Date(w.date + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })} · ${w.exercises.length} exercise${w.exercises.length === 1 ? '' : 's'} · ${Math.round(vol).toLocaleString()} lb volume</div></div><span style="color:rgba(255,255,255,.4)">▾</span></div>
+      <div class="hist-body">${w.exercises.map(ex => `<div><strong style="color:#fff;font-weight:500">${esc(ex.name)}</strong> — ${ex.sets.map(s => `${s.reps}×${s.weight}`).join(', ')}</div>`).join('')}
+        <div class="hist-actions"><button class="btn-secondary" data-h="repeat">Repeat</button><button class="btn-secondary" data-h="edit">Edit</button><button class="btn-secondary" data-h="del">Delete</button></div></div></div>`;
+  }).join('');
+}
+$('liftHistory').addEventListener('click', e => {
+  const b = e.target.closest('[data-h]'); if (!b) return;
+  const item = b.closest('.hist-item'), w = lifts.find(x => x.id === item.dataset.id);
+  if (b.dataset.h === 'toggle') return item.classList.toggle('open');
+  if (b.dataset.h === 'del') { lifts = lifts.filter(x => x.id !== w.id); saveLifts(); renderTrain(); return; }
+  liftDraft = newDraft(b.dataset.h === 'edit' ? { ...w, keepId: true } : w);
+  renderLiftForm(); $('liftForm').scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
+// Training context for the coach: recent sessions, strength trends, and whether the lifting stimulus is new/increased
+function trainingContext() {
+  if (!lifts.length) return 'LIFTING: nothing logged yet.';
+  const now = Date.now(), dayMs = 86400000;
+  const recent = [...lifts].sort((a, b) => b.ts - a.ts).filter(w => now - w.ts < 14 * dayMs);
+  const prev = lifts.filter(w => now - w.ts >= 14 * dayMs && now - w.ts < 42 * dayMs);
+  const sessions = recent.map(w => `  ${w.date} ${w.name}: ${w.exercises.map(ex => { const top = ex.sets.reduce((a, b) => (e1rm(b) > e1rm(a) ? b : a)); return `${ex.name} ${ex.sets.length}×(top ${top.reps}×${top.weight})`; }).join('; ')}`).join('\n');
+  const trends = exerciseHistory().filter(x => x.points.length > 1).slice(0, 8).map(x => { const a = x.points[0], b = x.points[x.points.length - 1]; return `  ${x.name}: est. 1RM ${Math.round(a.best)} → ${Math.round(b.best)} lb (${a.date} → ${b.date})`; }).join('\n');
+  const stimulus = recent.length && prev.length === 0 ? 'NEW lifting stimulus (no sessions in the 4 weeks before the last 2) — expect 2–3 weeks of water/glycogen retention on the scale; lean on trend direction, strength and body fat %.'
+    : recent.length > (prev.length / 2) * 1.5 ? 'Lifting volume has INCREASED vs the prior month — some scale water retention is likely.' : 'Lifting frequency roughly steady.';
+  return `LIFTING (logged on phone, lb):
+- Last 14 days: ${recent.length} sessions
+${sessions || '  (none)'}
+- Strength trends:
+${trends || '  (need 2+ sessions per exercise)'}
+- ${stimulus}`;
+}
+
 /* ═══════════════════════════════ TODAY SUMMARY */
 // The at-a-glance screen: greeting, calorie ring + macro bars, four metric tiles, and one clear next step.
 const RING_R = 64, RING_LEN = 2 * Math.PI * RING_R;
@@ -947,7 +1195,7 @@ $('todayTiles').onclick = e => { if (e.target.closest('[data-tile]')) showTab('i
 
 /* ═══════════════════════════════ TABS */
 let currentTab = 'today', lastMainTab = 'today';
-const TAB_TITLES = { log:['Log', ''], insights:['Insights', 'Recovery, glucose, body and trends'], coach:['Coach', ''], settings:['Settings', 'Profile, schedule, connections and labs'] };
+const TAB_TITLES = { train:['Train', 'Strain, lifting and strength'], log:['Log', ''], insights:['Insights', 'Recovery, glucose, body and trends'], coach:['Coach', ''], settings:['Settings', 'Profile, schedule, connections and labs'] };
 function showTab(name) {
   if (currentTab === 'settings' && name !== 'settings') S = Object.assign(defaultSettings(), store.get('mt_settings', {})); // discard unsaved edits
   currentTab = name;
@@ -962,6 +1210,7 @@ function showTab(name) {
   $('setupToggle').textContent = name === 'settings' ? '✕' : (S.name || 'C').trim().charAt(0).toUpperCase();
   if (name === 'settings') renderSetup();
   if (name === 'coach') renderChat();
+  if (name === 'train') renderTrain();
   renderHeader();
   window.scrollTo({ top:0 });
 }
@@ -976,7 +1225,6 @@ $('setupToggle').onclick = () => toggleSetup();
 $('tabbar').onclick = e => {
   const b = e.target.closest('[data-go]');
   if (b) return showTab(b.dataset.go);
-  if (e.target.closest('#quickAdd')) { showTab('log'); setTimeout(() => $('fName')?.focus(), 80); }
 };
 
 /* ═══════════════════════════════ TODAY UI */
@@ -1019,6 +1267,7 @@ function renderToday() {
   renderReadiness();
   renderGlucose();
   renderBody();
+  if (currentTab === 'train') renderTrain(true);
 }
 
 function defaultSlot(sch) {
@@ -1248,9 +1497,12 @@ ${labContext()}
 
 ${bodyContext()}
 
+${trainingContext()}
+
 COACHING
 - Voice: functional-medicine coach — explain the likely root cause behind what the data shows and give specific next steps, personalized to this user's own patterns. Lifestyle and nutrition guidance only: no diagnoses, no medication advice; if something looks medically concerning, suggest talking to their clinician.
 - Training & recovery (when Whoop data is present): judge readiness against the user's OWN baselines (HRV and RHR vs their 14-day average, sleep vs their need, recent strain and how many hard days in a row) rather than fixed cut-offs. Recommend hard / moderate / light-or-recovery with a concrete session idea and a reason. If data is missing or Whoop is calibrating, say so and lean conservative. Suggest recovery days when the signals stack up, not on a fixed schedule.
+- Training: use strength trends with weight and body fat to judge fat vs muscle loss — strength holding or rising during a deficit means the loss is mostly fat; falling strength plus fast weight loss suggests too steep a deficit or too little protein. When recommending sessions, build from their actual logged exercises and loads (progress by small load or rep jumps), and match intensity to today's readiness.
 - Weight & body composition: judge the 7-day average and its direction, never a single weigh-in. Day-to-day jumps after high-sodium, alcohol, sauna/sweat, travel, big carb days or a new/heavier lifting stimulus are usually water and glycogen — say so plainly ("this looks like water, not fat") so the user doesn't get discouraged. Use body fat % trend alongside weight to tell fat loss from muscle loss.
 - Labs as a baseline: use them to calibrate how strict to be. Elevated fasting insulin, HbA1c or fasting glucose (per the lab's range) → tighter glycemic guardrails (smaller carb portions per meal, carbs earlier/around training, more protein/fiber first); clean metabolic labs → looser. Lipids, hs-CRP, vitamin D, thyroid and ferritin inform food quality, fiber, omega-3, sunlight/sleep and recovery advice. Explain the likely root cause in plain language and the lifestyle levers that move each marker, and point out trends across draws. Never diagnose or suggest medication/dose changes; for out-of-range or worsening values, suggest discussing them with their clinician.
 - Glucose (when CGM data is present): learn THIS user's responses from the meal-response list — which foods, combos, portions, times of day and pre/post-workout timing give them smaller rises and faster returns to baseline — and steer suggestions toward what works for them. Patterns like pairing carbs with protein/fat/fiber or walking after meals should be recommended because their data supports it (cite the meals), not as generic rules. With little data, be conservative and say you're still learning their patterns. If the sensor flags LOW/HIGH repeatedly, or values look concerning, suggest they talk to their clinician.
@@ -2242,7 +2494,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.2';
+const BUILD = '2026-10-18.3';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
