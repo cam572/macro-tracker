@@ -650,6 +650,64 @@ body { background:var(--bg); overflow-x:hidden; }
 .eng-foods div { font-size:12px; color:rgba(255,255,255,.75); line-height:1.6; }
 .eng-foods .h { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.45); margin-bottom:2px; }
 
+/* Cleanup pass — modern type, lighter forms */
+.btn-primary, .btn-secondary, .ai-btn, .goal-btn, .slot-pick-btn, .clear-btn, .log-btn, .send-btn, .chip, .link-btn {
+  text-transform:none !important; letter-spacing:0 !important; font-family:var(--FB) !important; }
+.btn-primary, .ai-btn { font-size:15px; font-weight:600; }
+.btn-secondary { font-size:13px; font-weight:500; color:rgba(255,255,255,.82); }
+.goal-btn { font-size:12px; font-weight:500; padding:11px 4px; }
+.slot-pick-btn { font-size:12px; font-weight:500; }
+.clear-btn { font-size:12px; font-weight:500; }
+.macro-input-field input, .mono-input, .wc-val, .wc-target span, .strain-big, .lf-set input { font-family:var(--FB) !important; }
+.macro-input-field label { font-size:10px; letter-spacing:.04em; text-transform:none; color:rgba(255,255,255,.5); }
+.macro-input-field input { font-size:15px; font-weight:500; color:var(--text) !important; }
+.link-btn { font-size:12px; font-weight:500; color:rgba(255,255,255,.55); }
+.section-label { margin:28px 0 12px; }
+.card, .glass, .settings-section { margin-bottom:12px; }
+/* Today */
+.tile.has-spark { padding-bottom:44px; }
+.tile-spark { height:34px; opacity:.9; }
+/* Log */
+.add-card.collapsed .macro-inputs { display:none; }
+.macro-toggle { margin:2px 0 12px; }
+.add-actions { grid-template-columns:1fr 1fr; }
+.meal-empty { display:flex; justify-content:space-between; align-items:center; padding:13px 16px; margin-bottom:8px; border:1px dashed var(--border2); border-radius:18px; }
+.meal-empty span { font-weight:600; font-size:15px; color:rgba(255,255,255,.7); }
+.meal-empty button { background:none; border:none; color:var(--lime); font-family:var(--FB); font-size:13px; font-weight:500; cursor:pointer; }
+
+/* Insights: compact engine tiles */
+.eng-tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.eng-tile { text-align:left; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:18px; padding:13px 14px; cursor:pointer; color:var(--text); font-family:var(--FB); position:relative; transition:border-color .15s, background .15s; }
+.eng-tile.on { border-color:rgba(111,174,69,.5); background:rgba(111,174,69,.08); }
+.eng-tile .k { font-size:11px; color:rgba(255,255,255,.55); font-weight:500; }
+.eng-tile .v { font-size:22px; font-weight:600; letter-spacing:-.02em; margin-top:4px; line-height:1.1; }
+.eng-tile .v small { font-size:11px; font-weight:400; color:rgba(255,255,255,.5); margin-left:3px; }
+.eng-tile .s { font-size:11px; color:rgba(255,255,255,.5); margin-top:3px; }
+.eng-tile .dot { position:absolute; top:12px; right:12px; width:8px; height:8px; border-radius:50%; background:var(--acc1); box-shadow:0 0 0 3px rgba(111,174,69,.2); }
+.eng-tile .mini { height:5px; border-radius:3px; background:rgba(255,255,255,.08); margin-top:8px; overflow:hidden; }
+.eng-tile .mini i { display:block; height:100%; background:linear-gradient(90deg, var(--acc1), var(--acc2)); }
+.eng-detail { margin-top:12px; padding:14px; border-radius:18px; background:rgba(255,255,255,.03); border:1px solid var(--border); }
+.eng-detail .week-chart { height:130px; margin-top:12px; }
+.eng-extra { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+.rp-open { width:100%; display:flex; justify-content:space-between; align-items:center; padding:16px 18px; color:var(--text); font-family:var(--FB); font-size:15px; font-weight:600; cursor:pointer; text-align:left; }
+.rp-open span:last-child { color:rgba(255,255,255,.45); font-size:20px; transition:transform .2s; }
+.rp-open.on span:last-child { transform:rotate(90deg); }
+
+/* Settings menu */
+.set-menu { display:flex; flex-direction:column; }
+.set-row { display:flex; align-items:center; gap:12px; padding:15px 16px; background:var(--glass); border:1px solid var(--border); color:var(--text); font-family:var(--FB); cursor:pointer; text-align:left; margin-top:-1px; backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); }
+.set-row:first-child { border-radius:22px 22px 0 0; margin-top:0; }
+.set-row:last-child { border-radius:0 0 22px 22px; }
+.set-ic { width:32px; height:32px; border-radius:10px; background:rgba(111,174,69,.16); color:var(--lime); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.set-ic svg { width:17px; height:17px; }
+.set-main { flex:1; min-width:0; }
+.set-name { font-size:15px; font-weight:600; }
+.set-sum { font-size:12px; color:rgba(255,255,255,.5); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.set-chev { color:rgba(255,255,255,.35); font-size:20px; }
+.set-back { background:none; border:none; color:var(--lime); font-family:var(--FB); font-size:15px; font-weight:500; cursor:pointer; padding:0; margin-bottom:12px; }
+.set-note { font-size:12px; color:rgba(255,255,255,.4); text-align:center; margin-top:14px; }
+#setup .settings-section-title { display:none; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -695,16 +753,17 @@ body { background:var(--bg); overflow-x:hidden; }
       </div>
     </div>
 
-    <div class="today-pills" id="todayPills"></div>
+    <div class="today-pills hidden" id="todayPills"></div>
   </section>
 
   <!-- ═══════════ LOG ═══════════ -->
   <section class="tab-panel" id="tab-log" data-tab="log">
     <div id="foodView">
       <div class="section-label first">Add food</div>
-      <div class="card">
+      <div class="card add-card collapsed" id="addCard">
         <div class="slot-pick" id="slotPick"></div>
-        <div class="food-name-row"><input class="input-field" id="fName" placeholder="Food name or description — e.g. 6oz ribeye + 1 cup rice"></div>
+        <div class="food-name-row"><input class="input-field" id="fName" placeholder="What did you eat? e.g. 2 eggs + toast"></div>
+        <button class="link-btn macro-toggle" id="macroToggle">Enter macros manually</button>
         <div class="macro-inputs">
           <div class="macro-input-field"><label>Cals</label><input type="number" inputmode="decimal" id="fCal" placeholder="0"></div>
           <div class="macro-input-field"><label>Protein</label><input type="number" inputmode="decimal" id="fP" placeholder="0"></div>
@@ -713,8 +772,8 @@ body { background:var(--bg); overflow-x:hidden; }
           <div class="macro-input-field"><label>Fat</label><input type="number" inputmode="decimal" id="fF" placeholder="0"></div>
         </div>
         <div class="add-actions">
-          <button class="ai-btn" id="askAi">Ask AI</button>
-          <button class="btn-primary" id="addFood">Add</button>
+          <button class="btn-primary" id="askAi">Ask AI</button>
+          <button class="btn-secondary" id="addFood">Add</button>
         </div>
         <div class="ai-status" id="aiStatus"></div>
         <div class="ai-breakdown hidden" id="aiBreakdown"></div>
@@ -750,19 +809,9 @@ body { background:var(--bg); overflow-x:hidden; }
     <div id="glucose"></div>
     <div class="section-label">Body</div>
     <div id="bodyCard"></div>
-    <div class="section-label">Last 7 days</div>
-    <div class="card">
-      <div class="week-chart" id="weekChart"></div>
-      <div class="wc-days" id="weekDays"></div>
-      <div class="wc-legend">
-        <span><i style="background:var(--lime)"></i>Within 10%</span>
-        <span><i style="background:var(--s3);border:1px solid var(--border2)"></i>Under</span>
-        <span><i style="background:var(--orange)"></i>Over</span>
-      </div>
-    </div>
-
-    <div class="section-label">Progress report</div>
-    <div class="card">
+    <div class="section-label">Reports</div>
+    <button class="glass rp-open" id="rpOpen"><span>Progress report &amp; PDF</span><span>›</span></button>
+    <div class="card hidden" id="rpCard">
       <div class="rp-periods" id="rpPeriods"></div>
       <div id="rpStats"></div>
       <button class="ai-btn" id="rpAsk" style="width:100%;">Get coach report</button>
@@ -786,8 +835,10 @@ body { background:var(--bg); overflow-x:hidden; }
   <!-- ═══════════ SETTINGS ═══════════ -->
   <!-- ═══════════ SETUP ═══════════ -->
   <section id="setup" class="tab-panel hidden" data-tab="settings">
+    <button class="set-back hidden" id="setBack">‹ Settings</button>
+    <div class="set-menu" id="setMenu"></div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-sec="profile">
       <div class="settings-section-title">Profile</div>
       <div class="settings-field"><label>Name</label><input class="input-field" id="sName" placeholder="Your first name"></div>
       <div class="settings-field"><label>Goal</label>
@@ -806,13 +857,13 @@ body { background:var(--bg); overflow-x:hidden; }
       <div class="settings-section-sub" style="margin:0;">Stored only in this browser. Get one at console.anthropic.com → API Keys.</div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-sec="schedule">
       <div class="settings-section-title">Meal Schedule</div>
       <div class="settings-section-sub">Set meals per weekday. Today's slots load automatically. Tap ▼ to name meals (optional).</div>
       <div id="schedule"></div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-sec="diet">
       <div class="settings-section-title">Dietary Restrictions</div>
       <div class="settings-section-sub">The coach never recommends anything that breaks these.</div>
       <div class="chips" id="presetChips"></div>
@@ -824,7 +875,7 @@ body { background:var(--bg); overflow-x:hidden; }
       </div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-sec="grocery">
       <div class="settings-section-title">Grocery List</div>
       <div class="settings-section-sub">Snap your grocery list and the coach builds meals from it. Only your latest photo is kept.</div>
       <input type="file" id="groceryInput" accept="image/*" hidden>
@@ -832,7 +883,7 @@ body { background:var(--bg); overflow-x:hidden; }
       <div class="settings-status" id="groceryStatus"></div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-sec="connections">
       <div class="settings-section-title">Connections</div>
       <div class="settings-section-sub">Your private coach server links Whoop and Libre 3. These save as you type.</div>
       <div class="settings-field"><label>Coach server URL</label><input class="input-field" id="connUrl" placeholder="https://macro-coach.yourname.workers.dev" autocomplete="off" style="font-family:var(--FM);font-size:12px;"></div>
@@ -848,7 +899,7 @@ body { background:var(--bg); overflow-x:hidden; }
       <div class="settings-status" id="connStatus"></div>
     </div>
 
-    <div class="settings-section">
+    <div class="settings-section" data-sec="labs">
       <div class="settings-section-title">Lab Results</div>
       <div class="settings-section-sub">Your baseline layer. Upload a lab report (PDF or photo) and Claude reads the markers, or add them by hand. Each result keeps its date and the lab's own reference range so trends show across draws. Stored only on this phone.</div>
       <div id="labList"></div>
@@ -862,8 +913,7 @@ body { background:var(--bg); overflow-x:hidden; }
       <div class="settings-status" id="labStatus"></div>
     </div>
 
-    <button class="btn-primary" id="saveSetup">Save setup</button>
-    <div class="settings-status" id="setupStatus"></div>
+    <div class="set-note" id="setNote">Changes save automatically.</div>
   </section>
 </div>
 
@@ -995,7 +1045,12 @@ function renderRestrictions() {
     : `<span class="fast-note" style="padding:0;">None yet.</span>`;
 }
 
-$('goalRow').onclick = e => { const b = e.target.closest('[data-goal]'); if (!b) return; S.goal = b.dataset.goal; renderSetup(); };
+$('goalRow').onclick = e => {
+  const b = e.target.closest('[data-goal]'); if (!b) return;
+  S.goal = b.dataset.goal;
+  // Only redraw the goal buttons — redrawing the whole page would reset fields mid-edit
+  $('goalRow').querySelectorAll('[data-goal]').forEach(x => x.classList.toggle('active', x.dataset.goal === S.goal));
+};
 $('schedule').addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.count != null) { const i = +t.dataset.count; S.schedule[i].count = +t.value; openDays.delete(i); renderSchedule(); }
@@ -1020,21 +1075,62 @@ $('presetChips').onclick = e => {
 $('customChips').onclick = e => { const x = e.target.closest('[data-rmcustom]'); if (!x) return; S.custom.splice(+x.dataset.rmcustom, 1); renderRestrictions(); };
 function addCustom() { const v = $('customInput').value.trim(); if (!v) return; S.custom.push(v); $('customInput').value = ''; renderRestrictions(); }
 $('customAdd').onclick = addCustom;
-$('customInput').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } };
+$('customInput').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); commitSettings(); } };
 
-$('saveSetup').onclick = () => {
-  const pending = $('customInput').value.trim(); if (pending) addCustom();
+/* Settings: menu of sections, each on its own page, saved automatically */
+let setSection = null;
+const SET_SECTIONS = [
+  ['profile', 'Profile & targets', '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
+  ['schedule', 'Meal schedule', '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'],
+  ['diet', 'Diet & restrictions', '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M4.9 4.9l14.2 14.2"/>'],
+  ['grocery', 'Grocery list', '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/>'],
+  ['connections', 'Connections', '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'],
+  ['labs', 'Lab results', '<path d="M9 2v6L4 18a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3L15 8V2"/><path d="M8 2h8"/>'],
+];
+function setSummary(key) {
+  const counts = S.schedule.map(d => d.count), common = counts.sort((a, b) => counts.filter(x => x === b).length - counts.filter(x => x === a).length)[0];
+  switch (key) {
+    case 'profile': return `${S.name || 'No name'} · ${S.goal} · ${(S.targets.cal || 0).toLocaleString()} kcal`;
+    case 'schedule': return common === 0 ? 'Mostly fasting days' : `${common} meal${common === 1 ? '' : 's'} most days${S.schedule.some(d => d.count === 0) ? ' · has fasting days' : ''}`;
+    case 'diet': { const r = [...S.presets, ...S.custom]; return r.length ? r.join(', ') : 'No restrictions'; }
+    case 'grocery': return groceryImg ? 'Photo saved — coach uses it' : 'No list';
+    case 'connections': return `Whoop ${whoopConnected ? '✓' : '—'} · Libre 3 ${gluData?.status?.configured ? '✓' : '—'}${conn.key ? '' : ' · server key missing'}`;
+    case 'labs': { const m = labsByMarker().length; return m ? `${m} marker${m === 1 ? '' : 's'} on file` : 'None yet'; }
+  }
+}
+function renderSetMenu() {
+  const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+  $('setMenu').innerHTML = SET_SECTIONS.map(([key, name, icon]) => `<button class="set-row" data-set="${key}"><span class="set-ic">${chev}${icon}</svg></span><span class="set-main"><div class="set-name">${name}</div><div class="set-sum">${esc(setSummary(key))}</div></span><span class="set-chev">›</span></button>`).join('');
+}
+function showSetSection(key) {
+  setSection = key;
+  $('setMenu').classList.toggle('hidden', !!key);
+  $('setBack').classList.toggle('hidden', !key);
+  document.querySelectorAll('#setup [data-sec]').forEach(sec => sec.classList.toggle('hidden', sec.dataset.sec !== key));
+  $('pageTitle').textContent = key ? SET_SECTIONS.find(x => x[0] === key)[1] : 'Settings';
+  $('pageSub').textContent = key ? '' : TAB_TITLES.settings[1];
+  if (!key) renderSetMenu();
+  window.scrollTo({ top:0 });
+}
+$('setMenu').onclick = e => { const r = e.target.closest('[data-set]'); if (r) showSetSection(r.dataset.set); };
+$('setBack').onclick = () => showSetSection(null);
+
+// Autosave: every edit inside Settings commits right away (debounced refresh of the rest of the app)
+let saveTimer = null;
+function commitSettings() {
+  if ($('setup').classList.contains('hidden')) return;
   S.name = $('sName').value.trim();
   S.apiKey = $('sKey').value.trim();
   S.targets = { cal:n($('tCal').value), p:n($('tP').value), c:n($('tC').value), s:n($('tS').value), f:n($('tF').value) };
   store.set('mt_settings', S);
   store.set('mt_setup_done', true);
-  $('setupStatus').className = 'settings-status ok';
-  $('setupStatus').textContent = 'Saved.';
-  setTimeout(() => { showTab(lastMainTab); $('setupStatus').textContent = ''; }, 500);
-  activeSlot = null;
-  renderToday();
-};
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { activeSlot = null; renderToday(); $('setNote').textContent = 'Saved'; setTimeout(() => $('setNote').textContent = 'Changes save automatically.', 1200); }, 400);
+}
+// Capture + defer: section handlers (e.g. the meal-count dropdown) update S and re-render first, then we save
+['input', 'change'].forEach(ev => $('setup').addEventListener(ev, e => { if (e.target.closest('[data-sec="profile"], [data-sec="schedule"], [data-sec="diet"]')) setTimeout(commitSettings, 0); }, true));
+// Capture phase: these buttons re-render their own section on click, so catch the tap before the target is replaced
+$('setup').addEventListener('click', e => { if (e.target.closest('[data-sec="profile"] .goal-btn, [data-sec="schedule"] [data-copy], [data-sec="diet"] .chip, #customAdd, [data-rmcustom]')) setTimeout(commitSettings, 0); }, true);
 
 /* ═══════════════════════════════ COACH ENGINE */
 // Deterministic analysis from the user's own data. No population thresholds — estimates start at the
@@ -1181,31 +1277,39 @@ function glycemicStrictness() {
   return { level:'standard', why:'Metabolic labs within range.' };
 }
 
+let engOpen = null; // which tile's detail is expanded
 function renderEngine() {
   if (!$('engCard')) return;
   const td = adaptiveTDEE(), wk = weeklyBalance(), sr = scaleRead(), cc = compositionCheck(), gl = glucoseLearning(), gs = glycemicStrictness();
-  const confTxt = td.measured == null ? `learning · ${td.loggedDays}/7 logged days, ${td.weighIns}/6 weigh-ins` : `${Math.round(td.conf * 100)}% confidence`;
-  const wkPct = wk.budget ? Math.min(1, wk.intake / wk.budget) : 0, pacePct = wk.budget ? Math.min(1, (S.targets.cal * wk.daysIn) / wk.budget) : 0;
+  const k = n => n >= 10000 ? (n / 1000).toFixed(1) + 'k' : n.toLocaleString();
+  const ccShort = !cc ? '—' : /the goal/.test(cc.verdict) ? 'Losing fat' : /muscle loss/.test(cc.verdict) ? 'Check muscle' : /Lean mass/.test(cc.verdict) ? 'Protect muscle' : /trending up/.test(cc.verdict) ? 'Trending up' : 'Steady';
+  const tiles = [
+    ['maint', 'Maintenance', `${td.est.toLocaleString()}<small>kcal</small>`, td.measured == null ? `Learning · ${td.loggedDays}/7 days` : `${Math.round(td.conf * 100)}% confidence`, td.showSuggest],
+    ['week', 'This week', `${k(wk.intake)}<small>/ ${k(wk.budget)}</small>`, `<div class="mini"><i style="width:${wk.budget ? Math.min(100, wk.intake / wk.budget * 100) : 0}%"></i></div>`, false],
+    ['scale', 'Scale read', sr ? sr.tag : '—', sr ? (Math.abs(sr.diffLb) < 0.6 ? `Trend ${sr.trendLb.toFixed(1)} lb` : `${sr.diffLb > 0 ? '+' : ''}${sr.diffLb.toFixed(1)} lb vs trend`) : 'No recent weigh-in', false],
+    ['comp', 'Fat vs. muscle', ccShort, cc ? `${cc.ratePct >= 0 ? '+' : ''}${cc.ratePct.toFixed(2)}%/wk` : 'Needs ~2 weeks of data', false],
+  ];
+  const detail = {
+    maint: () => `<div class="eng-note" style="margin-top:0">${td.measured == null ? 'Starting from your target. Keep logging and weighing in — this adapts to what your body actually does.' : `From your weight trend (${(td.slope * 7 * LB) > 0 ? '+' : ''}${(td.slope * 7 * LB).toFixed(1)} lb/wk) vs. ~${r0(td.measured).toLocaleString()} kcal measured.`}${td.stim.state !== 'steady' ? ' Lower confidence: ' + td.stim.note : ''}</div>
+      ${td.showSuggest ? `<div class="eng-note">For ${esc(S.goal)}, that points to <b style="color:#fff">${td.suggested.toLocaleString()} kcal</b> (now ${td.current.toLocaleString()}).</div><button class="btn-primary eng-apply" id="engApply">Use ${td.suggested.toLocaleString()} kcal</button>` : ''}`,
+    week: () => `<div class="eng-note" style="margin-top:0">${wk.left >= 0 ? `${wk.left.toLocaleString()} kcal left · ~${wk.perDay.toLocaleString()}/day for the rest of the week` : `${(-wk.left).toLocaleString()} kcal over the weekly budget`}${Math.abs(wk.vsPace) >= 150 ? ` · ${Math.abs(wk.vsPace).toLocaleString()} kcal ${wk.vsPace > 0 ? 'over' : 'under'} pace` : ' · right on pace'}.</div>
+      <div class="week-chart" id="weekChart"></div><div class="wc-days" id="weekDays"></div>
+      <div class="wc-legend"><span><i style="background:var(--lime)"></i>Within 10%</span><span><i style="background:var(--s3);border:1px solid var(--border2)"></i>Under</span><span><i style="background:var(--orange)"></i>Over</span></div>`,
+    scale: () => sr ? `<div class="eng-note" style="margin-top:0">${esc(sr.note)}</div>` : '<div class="eng-note" style="margin-top:0">Weigh in to get a scale read.</div>',
+    comp: () => cc ? `<div class="eng-note" style="margin-top:0">${esc(cc.verdict)}</div><div class="eng-note" style="font-family:var(--FM);font-size:11px;color:rgba(255,255,255,.5)">${cc.fatChange != null ? `fat ${cc.fatChange >= 0 ? '+' : ''}${cc.fatChange.toFixed(1)} lb · lean ${cc.leanChange >= 0 ? '+' : ''}${cc.leanChange.toFixed(1)} lb` : ''}${cc.strength != null ? ` · strength ${cc.strength >= 0 ? '+' : ''}${cc.strength.toFixed(1)}%` : ''}</div>` : '<div class="eng-note" style="margin-top:0">Needs about two weeks of weigh-ins with body fat.</div>',
+  };
+  const n = gl?.total || 0;
   $('engCard').innerHTML = `
-    <div class="eng-row"><div class="eng-k">Your maintenance<span class="conf">${confTxt}</span></div>
-      <div class="eng-v">${td.est.toLocaleString()}<small>kcal/day</small></div>
-      <div class="eng-note">${td.measured == null ? `Starting from your target. Keep logging and weighing in — this adapts to what your body actually does.` : `From your weight trend (${td.slope != null ? `${(td.slope * 7 * LB) > 0 ? '+' : ''}${(td.slope * 7 * LB).toFixed(1)} lb/wk` : ''}) vs. ~${r0(td.measured)} kcal measured.`}${td.stim.state !== 'steady' ? ' Lower confidence: ' + td.stim.note : ''}</div>
-      ${td.showSuggest ? `<div class="eng-note">For ${esc(S.goal)}, that points to <b style="color:#fff">${td.suggested.toLocaleString()} kcal</b> (now ${td.current.toLocaleString()}).</div><button class="btn-primary eng-apply" id="engApply">Use ${td.suggested.toLocaleString()} kcal</button>` : ''}
-    </div>
-    <div class="eng-row"><div class="eng-k">This week<span class="conf">day ${wk.daysIn} of 7</span></div>
-      <div class="eng-v">${wk.intake.toLocaleString()}<small>/ ${wk.budget.toLocaleString()} kcal</small></div>
-      <div class="eng-bar"><i style="width:${wkPct * 100}%"></i><b style="left:${pacePct * 100}%"></b></div>
-      <div class="eng-note">${wk.left >= 0 ? `${wk.left.toLocaleString()} left · ~${wk.perDay.toLocaleString()}/day for the rest of the week` : `${(-wk.left).toLocaleString()} over the weekly budget`}${Math.abs(wk.vsPace) >= 150 ? ` · ${Math.abs(wk.vsPace).toLocaleString()} kcal ${wk.vsPace > 0 ? 'over' : 'under'} pace` : ' · right on pace'}.</div>
-    </div>
-    ${sr ? `<div class="eng-row"><div class="eng-k">Scale read<span class="conf">trend ${sr.trendLb.toFixed(1)} lb</span></div><div class="eng-v" style="font-size:18px">${sr.tag}</div><div class="eng-note">${esc(sr.note)}</div></div>` : ''}
-    ${cc ? `<div class="eng-row"><div class="eng-k">Fat vs. muscle<span class="conf">last ~4 weeks</span></div><div class="eng-note" style="margin-top:6px">${esc(cc.verdict)}</div>
-      <div class="eng-note" style="font-family:var(--FM);font-size:11px;color:rgba(255,255,255,.5)">${cc.ratePct >= 0 ? '+' : ''}${cc.ratePct.toFixed(2)}%/wk${cc.fatChange != null ? ` · fat ${cc.fatChange >= 0 ? '+' : ''}${cc.fatChange.toFixed(1)} lb · lean ${cc.leanChange >= 0 ? '+' : ''}${cc.leanChange.toFixed(1)} lb` : ''}${cc.strength != null ? ` · strength ${cc.strength >= 0 ? '+' : ''}${cc.strength.toFixed(1)}%` : ''}</div></div>` : ''}
-    ${gl && gl.total ? `<div class="eng-row"><div class="eng-k">Your glucose patterns<span class="conf">${gl.total} foods</span></div>
+    <div class="eng-tiles">${tiles.map(([key, label, v, sub, dot]) => `<button class="eng-tile ${engOpen === key ? 'on' : ''}" data-eng="${key}">${dot ? '<span class="dot"></span>' : ''}<div class="k">${label}</div><div class="v">${v}</div><div class="s">${sub}</div></button>`).join('')}</div>
+    ${engOpen ? `<div class="eng-detail">${detail[engOpen]()}</div>` : ''}
+    ${n ? `<div class="eng-extra"><div class="eng-k">Your glucose patterns<span class="conf">${n} food${n === 1 ? '' : 's'}</span></div>
       <div class="eng-foods"><div><div class="h">Steadiest</div>${gl.steady.map(f => `${esc(f.name)} <span style="color:var(--lime)">+${r0(f.rise)}</span>`).join('<br>')}</div><div><div class="h">Biggest rises</div>${gl.spiky.map(f => `${esc(f.name)} <span style="color:var(--orange)">+${r0(f.rise)}</span>`).join('<br>') || '—'}</div></div>
       ${gl.am != null && gl.pm != null ? `<div class="eng-note">Per 10g carbs: +${r0(gl.am)} in the morning vs +${r0(gl.pm)} in the evening.</div>` : ''}${gl.postWo != null && gl.notPostWo != null ? `<div class="eng-note">After training: +${r0(gl.postWo)} per 10g carbs vs +${r0(gl.notPostWo)} otherwise.</div>` : ''}</div>` : ''}
-    <div class="eng-row"><div class="eng-k">Glucose guardrails</div><div class="eng-v" style="font-size:18px;text-transform:capitalize">${gs.level}</div><div class="eng-note">${esc(gs.why)}</div></div>`;
+    ${gs.level !== 'standard' ? `<div class="eng-extra"><div class="eng-k">Glucose guardrails</div><div class="eng-note"><b style="color:#fff;text-transform:capitalize">${gs.level}</b> — ${esc(gs.why)}</div></div>` : ''}`;
+  if (engOpen === 'week') renderWeek();
   const ap = $('engApply'); if (ap) ap.onclick = () => { S.targets.cal = td.suggested; store.set('mt_settings', S); renderToday(); };
 }
+$('engCard').addEventListener('click', e => { const t = e.target.closest('[data-eng]'); if (!t) return; engOpen = engOpen === t.dataset.eng ? null : t.dataset.eng; renderEngine(); });
 
 // Engine output for the coach — exact numbers it should rely on
 function engineContext() {
@@ -1617,7 +1721,7 @@ function renderTodaySummary(sch, t, T, fasting, eatenSlots) {
       <svg viewBox="0 0 148 148"><defs><linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86C04E"/><stop offset=".55" stop-color="#4A8A2E"/><stop offset="1" stop-color="#2C5E1E"/></linearGradient></defs>
         <circle cx="74" cy="74" r="${RING_R}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="14"/>
         <circle class="prog" cx="74" cy="74" r="${RING_R}" fill="none" stroke="${calLeft < 0 ? 'var(--orange)' : 'url(#heroGrad)'}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${RING_LEN}" stroke-dashoffset="${RING_LEN * (1 - pct)}"/></svg>
-      <div class="hero-c"><div class="hero-kcal">${Math.abs(calLeft)}</div><div class="hero-kcal-sub">kcal ${calLeft < 0 ? 'over' : 'left'}</div></div>
+      <div class="hero-c"><div class="hero-kcal">${Math.abs(calLeft).toLocaleString()}</div><div class="hero-kcal-sub">kcal ${calLeft < 0 ? 'over' : 'left'}</div></div>
     </div>
     <div class="hero-mac">${bars.map(([lbl, k, g]) => {
       const v = t[k], tg = T[k] || 0, w = tg ? Math.min(v / tg, 1) * 100 : 0;
@@ -1630,7 +1734,7 @@ function renderTodaySummary(sch, t, T, fasting, eatenSlots) {
   const recNote = rec ? (w.stale ? `Last scored ${lastDay} · updates when you wake` : rec.score >= 67 ? 'High · good day to push' : rec.score >= 34 ? 'Moderate · train smart' : 'Low · prioritize recovery') : '';
   const gl = gluData?.status?.configured ? gluData.status.latest : null;
   const tr = weightTrend(), lastW = tr.dw[tr.dw.length - 1];
-  const tile = (key, label, color, val, unit, note, extra = '') => `<button class="tile glass" data-tile="${key}">
+  const tile = (key, label, color, val, unit, note, extra = '') => `<button class="tile glass${extra ? ' has-spark' : ''}" data-tile="${key}">
       <div class="tile-lbl"><span class="tile-dot" style="background:${color}"></span>${label}</div>
       ${val != null ? `<div class="tile-val" style="color:${color}">${val}<small>${unit}</small></div><div class="tile-note">${note}</div>` : `<div class="tile-empty">${note}</div>`}${extra}</button>`;
   let spark = '';
@@ -1644,7 +1748,7 @@ function renderTodaySummary(sch, t, T, fasting, eatenSlots) {
   }
   $('todayTiles').innerHTML =
     tile('recovery', 'Recovery', '#7DB851', rec?.score ?? null, '%', rec ? recNote : whoopConnected ? 'Waiting for your next recovery' : 'Connect Whoop in Settings') +
-    tile('glucose', 'Glucose', '#E6EAE2', gl?.v ?? null, ' mg/dL', gl ? `${TREND[gl.trend] || ''} ${Math.round((Date.now() - gl.t * 1000) / 60000)} min ago` : 'Connect Libre 3 in Settings', spark) +
+    tile('glucose', 'Glucose', '#E6EAE2', gl?.v ?? null, ' mg/dL', gl ? (() => { const m = Math.round((Date.now() - gl.t * 1000) / 60000); return `${TREND[gl.trend] || ''} ${m < 1 ? 'Just now' : m + ' min ago'}`; })() : 'Connect Libre 3 in Settings', spark) +
     tile('weight', 'Weight', '#9DCB72', lastW ? (lastW.kg * LB).toFixed(1) : null, ' lb', tr.change != null ? `${tr.change > 0 ? '↑' : '↓'} ${Math.abs(tr.change * LB).toFixed(1)} vs last week` : tr.avg7 != null ? `7-day avg ${(tr.avg7 * LB).toFixed(1)}` : 'Weigh in to start a trend') +
     tile('sleep', 'Sleep', '#C3CFBA', sl?.hours ?? null, ' h', sl ? `of ${sl.needHours ?? '—'}h needed${w.stale ? ` · ${lastDay}` : ''}` : whoopConnected ? 'Waiting for tonight\u2019s sleep' : 'Connect Whoop in Settings');
 
@@ -1668,7 +1772,6 @@ $('todayTiles').onclick = e => { if (e.target.closest('[data-tile]')) showTab('i
 let currentTab = 'today', lastMainTab = 'today';
 const TAB_TITLES = { train:['Train', 'Strain, lifting and strength'], log:['Log', ''], insights:['Insights', 'Recovery, glucose, body and trends'], coach:['Coach', ''], settings:['Settings', 'Profile, schedule, connections and labs'] };
 function showTab(name) {
-  if (currentTab === 'settings' && name !== 'settings') S = Object.assign(defaultSettings(), store.get('mt_settings', {})); // discard unsaved edits
   currentTab = name;
   if (name !== 'settings') lastMainTab = name;
   document.querySelectorAll('.tab-panel').forEach(p => {
@@ -1679,7 +1782,7 @@ function showTab(name) {
   document.querySelectorAll('#tabbar .tb').forEach(b => b.classList.toggle('on', b.dataset.go === name));
   $('setupToggle').classList.toggle('close', name === 'settings');
   $('setupToggle').textContent = name === 'settings' ? '✕' : (S.name || 'C').trim().charAt(0).toUpperCase();
-  if (name === 'settings') renderSetup();
+  if (name === 'settings') { renderSetup(); showSetSection(null); }
   if (name === 'coach') renderChat();
   if (name === 'train') { renderTrain(); syncWhoopWorkouts(); }
   renderHeader();
@@ -1687,6 +1790,7 @@ function showTab(name) {
 }
 function renderHeader() {
   if (currentTab === 'today') return; // Today's greeting is written by renderTodaySummary
+  if (currentTab === 'settings' && setSection) return; // section title set by showSetSection
   const [t, sub] = TAB_TITLES[currentTab] || ['', ''];
   $('pageTitle').textContent = t;
   $('pageSub').textContent = currentTab === 'log' ? new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }) : currentTab === 'coach' ? '' : sub;
@@ -1754,6 +1858,7 @@ function renderFood(sch) {
   $('foodLog').innerHTML = sch.slots.map((s, i) => {
     const items = day.items.map((it, idx) => ({ it, idx })).filter(x => itemSlot(x.it, sch.count) === i);
     const st = totals(items.map(x => x.it));
+    if (!items.length) return `<div class="meal-empty"><span>${esc(s.name)}</span><button data-addslot="${i}">+ Add</button></div>`;
     return `<div class="food-log-section">
       <div class="food-log-head">
         <div><span class="food-log-meal-name">${esc(s.name)}</span>${mealBadge(todayKey, i)}</div>
@@ -1770,7 +1875,11 @@ function renderFood(sch) {
 }
 
 $('slotPick').onclick = e => { const b = e.target.closest('[data-slot]'); if (!b) return; activeSlot = +b.dataset.slot; renderFood(todaySchedule()); };
-$('foodLog').onclick = e => { const b = e.target.closest('[data-del]'); if (!b) return; day.items.splice(+b.dataset.del, 1); saveDay(todayKey, day); renderToday(); };
+$('foodLog').onclick = e => {
+  const a = e.target.closest('[data-addslot]');
+  if (a) { activeSlot = +a.dataset.addslot; renderFood(todaySchedule()); window.scrollTo({ top:0, behavior:'smooth' }); setTimeout(() => $('fName').focus(), 250); return; }
+  const b = e.target.closest('[data-del]'); if (!b) return; day.items.splice(+b.dataset.del, 1); saveDay(todayKey, day); renderToday();
+};
 
 function logItem(item, slot) {
   const sch = todaySchedule();
@@ -1789,9 +1898,18 @@ $('addFood').onclick = () => {
   logItem({ name: name || 'Quick add', cal:vals[0], p:vals[1], c:vals[2], s:vals[3], f:vals[4] });
   ['fName','fCal','fP','fC','fS','fF'].forEach(id => $(id).value = '');
   $('aiBreakdown').classList.add('hidden');
+  setAddMode(false);
   setAi('Added.', 'ok');
 };
 $('fName').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('askAi').click(); } };
+// Macro boxes stay tucked away until needed; once they hold values, Add becomes the main action
+function setAddMode(open) {
+  $('addCard').classList.toggle('collapsed', !open);
+  $('macroToggle').textContent = open ? 'Hide macros' : 'Enter macros manually';
+  $('askAi').className = open ? 'btn-secondary' : 'btn-primary';
+  $('addFood').className = open ? 'btn-primary' : 'btn-secondary';
+}
+$('macroToggle').onclick = () => setAddMode($('addCard').classList.contains('collapsed'));
 
 function setAi(msg, cls) { $('aiStatus').textContent = msg; $('aiStatus').className = 'ai-status ' + (cls || ''); }
 
@@ -1866,6 +1984,7 @@ $('askAi').onclick = async () => {
     $('aiBreakdown').innerHTML = j.items.map(it => `<div class="ai-breakdown-row"><span>${esc(it.food)} · ${esc(it.amount)}</span><span>${r0(n(it.calories))} kcal · ${r0(n(it.protein))}P ${r0(n(it.carbs))}C ${r0(n(it.fat))}F</span></div>`).join('') +
       (j.assumptions ? `<div class="ai-breakdown-note">Assumed: ${esc(j.assumptions)}</div>` : '');
     $('aiBreakdown').classList.remove('hidden');
+    setAddMode(true);
     setAi('Filled — check the breakdown, then Add. Wrong portion? Edit the description and Ask AI again.', 'ok');
   } catch (err) { setAi(err.message, 'err'); }
   $('askAi').disabled = false;
@@ -1901,6 +2020,7 @@ $('fastNote').oninput = e => { day.note = e.target.value; saveDay(todayKey, day)
 
 /* ═══════════════════════════════ 7-DAY CHART */
 function renderWeek() {
+  if (!$('weekChart')) return;
   const T = S.targets.cal || 1;
   const days = [];
   for (let i = 6; i >= 0; i--) {
@@ -1910,7 +2030,7 @@ function renderWeek() {
     days.push({ d, k, cal: totals(log.items).cal, fast: (S.schedule[dayIdx(d)] || {}).count === 0 && !log.items.length });
   }
   const max = Math.max(T * 1.15, ...days.map(x => x.cal)) || 1;
-  const H = 146;
+  const H = 116;
   $('weekChart').innerHTML = `<div class="wc-target" style="bottom:${(T / max) * H}px"><span>${r0(T)}</span></div>` +
     days.map(x => {
       const ratio = x.cal / T;
@@ -2404,6 +2524,7 @@ $('rpPdf').onclick = async () => {
   } catch (err) { status(err.message || "Couldn't create the PDF.", 'err'); }
 };
 
+$('rpOpen').onclick = () => { const on = $('rpCard').classList.toggle('hidden') === false; $('rpOpen').classList.toggle('on', on); if (on) renderReport(); };
 $('rpPeriods').onclick = e => { const b = e.target.closest('[data-rp]'); if (!b) return; rpDays = +b.dataset.rp; store.set('mt_rp_days', rpDays); $('rpStatus').textContent = ''; renderReport(); };
 
 $('rpAsk').onclick = async () => {
@@ -3067,7 +3188,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.10';
+const BUILD = '2026-10-18.11';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
@@ -3083,14 +3204,14 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 if (location.hash.startsWith('#whoop=')) {
   const ok = location.hash === '#whoop=connected';
   history.replaceState(null, '', location.pathname);
-  setTimeout(() => { toggleSetup(true); setConnStatus(ok ? 'Whoop connected — syncing…' : 'Whoop connection failed — try again.', ok ? 'ok' : 'err'); refreshWhoopStatus(true); }, 50);
+  setTimeout(() => { toggleSetup(true); showSetSection('connections'); setConnStatus(ok ? 'Whoop connected — syncing…' : 'Whoop connection failed — try again.', ok ? 'ok' : 'err'); refreshWhoopStatus(true); }, 50);
 } else refreshWhoopStatus(true);
 
 /* ═══════════════════════════════ INIT */
 renderToday();
 photoDB.get().then(p => { groceryImg = typeof p === 'string' ? p : null; renderGrocery(); });
 loadProgress();
-if (!store.get('mt_setup_done', false)) toggleSetup(true);
+if (!store.get('mt_setup_done', false)) { toggleSetup(true); showSetSection('profile'); }
 </script>
 </body>
 </html>
