@@ -1106,10 +1106,28 @@ $('liftForm').addEventListener('click', e => {
   renderLiftForm();
 });
 
+// Lifting overview from Whoop: frequency, duration and strain even before any sets are entered
+function liftingOverview() {
+  const wo = (whoopWo?.workouts || []).filter(w => actCat(w.sport)[0] === 'lifting');
+  if (!wo.length) return '';
+  const now = Date.now(), last30 = wo.filter(w => now - Date.parse(w.start) < 30 * 86400000);
+  const avg = f => last30.length ? last30.reduce((a, w) => a + (f(w) || 0), 0) / last30.length : 0;
+  const lastS = wo[0], daysAgo = Math.floor((now - Date.parse(lastS.start)) / 86400000);
+  const needSets = wo.filter(w => now - Date.parse(w.start) < 21 * 86400000 && !lifts.some(l => l.whoopId === w.id)).slice(0, 4);
+  return `<div class="act-sum" style="margin-bottom:10px">
+      <div class="act-sum-tile"><div class="k"><span class="tile-dot" style="background:#7DB851"></span>Sessions</div><div class="v">${last30.length}×</div><div class="s">last 30 days</div></div>
+      <div class="act-sum-tile"><div class="k">Per week</div><div class="v">${(last30.length / 4.3).toFixed(1)}</div><div class="s">avg ${Math.round(avg(w => w.minutes))} min</div></div>
+      <div class="act-sum-tile"><div class="k">Avg strain</div><div class="v">${avg(w => w.strain).toFixed(1)}</div><div class="s">last ${daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : daysAgo + 'd ago'}</div></div>
+    </div>
+    ${needSets.length ? `<div class="ready-label" style="margin:4px 0 6px">Add sets to see strength trends</div>
+      <div class="repeat-row" style="margin-top:0">${needSets.map(w => `<button class="chip" data-addsets="${w.id}">${new Date(w.start).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })} · ${w.minutes}m</button>`).join('')}</div>` : ''}`;
+}
+
 function renderTrends() {
   const hist = exerciseHistory().filter(x => x.points.some(p => p.best > 0)).sort((a, b) => b.points.length - a.points.length || a.name.localeCompare(b.name));
-  if (!hist.length) { $('liftTrends').innerHTML = '<div class="rp-empty">Log a few workouts and your strength trends show up here.</div>'; return; }
-  $('liftTrends').innerHTML = hist.slice(0, 12).map(x => {
+  const overview = liftingOverview();
+  if (!hist.length) { $('liftTrends').innerHTML = overview + `<div class="rp-empty" style="margin-top:${overview ? 12 : 0}px">${overview ? 'Whoop records your lifting sessions but not the weights. Add sets to a session (or log them during your workout) and your strength trends build here.' : 'Log a few workouts and your strength trends show up here.'}</div>`; return; }
+  $('liftTrends').innerHTML = overview + (overview ? '<div class="ready-label" style="margin:14px 0 2px">Strength by exercise</div>' : '') + hist.slice(0, 12).map(x => {
     const pts = x.points.filter(p => p.best > 0), last = pts[pts.length - 1], first = pts[0];
     const prevBest = Math.max(0, ...pts.slice(0, -1).map(p => p.best));
     const pr = pts.length > 1 && last.best > prevBest;
@@ -1238,6 +1256,12 @@ function liftDetail(l) {
     <div class="hist-actions"><button class="btn-secondary" data-act="repeat">Repeat</button><button class="btn-secondary" data-act="edit">Edit</button><button class="btn-secondary" data-act="del">Delete sets</button></div>`;
 }
 
+$('liftTrends').addEventListener('click', e => {
+  const b = e.target.closest('[data-addsets]'); if (!b) return;
+  const w = whoopWo?.workouts.find(x => x.id === b.dataset.addsets); if (!w) return;
+  liftDraft = newDraft(); liftDraft.date = w.date; liftDraft.whoopId = w.id; liftDraft.name = prettySport(w.sport);
+  renderLiftForm(); $('liftForm').scrollIntoView({ behavior:'smooth', block:'start' });
+});
 $('liftHistory').addEventListener('click', e => {
   const f = e.target.closest('[data-af]');
   if (f) { actFilter = f.dataset.af; openWeeks.clear(); renderHistory(); return; }
@@ -1380,7 +1404,7 @@ function showTab(name) {
   $('setupToggle').textContent = name === 'settings' ? '✕' : (S.name || 'C').trim().charAt(0).toUpperCase();
   if (name === 'settings') renderSetup();
   if (name === 'coach') renderChat();
-  if (name === 'train') renderTrain();
+  if (name === 'train') { renderTrain(); syncWhoopWorkouts(); }
   renderHeader();
   window.scrollTo({ top:0 });
 }
@@ -2664,7 +2688,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.6';
+const BUILD = '2026-10-18.7';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
