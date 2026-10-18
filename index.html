@@ -1480,6 +1480,7 @@ ${st.avg ? `Daily averages: ${r0(st.avg.cal)} kcal · P ${r0(st.avg.p)} · C ${r
 /* ═══════════════════════════════ CONNECTIONS (coach server) */
 // The page talks only to the user's own Worker; Whoop tokens never touch the phone.
 let conn = Object.assign({ url:'', key:'' }, store.get('mt_conn', {}));
+if (!conn.url) conn.url = 'https://macro-coach.camcredeur.workers.dev'; // single-user default; useless without the key
 let whoopData = store.get('mt_whoop', null);          // { syncedAt, days:[...] }
 let whoopConnected = store.get('mt_whoop_on', false);
 const WHOOP_STALE_MS = 30 * 60 * 1000;
@@ -1613,7 +1614,7 @@ ${recent || '  (none)'}`;
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-17.1';
+const BUILD = '2026-10-17.2';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
