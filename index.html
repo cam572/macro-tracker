@@ -590,6 +590,20 @@ body { background:var(--bg); overflow-x:hidden; }
 .zones { display:flex; height:6px; border-radius:3px; overflow:hidden; margin:6px 0 2px; background:rgba(255,255,255,.06); }
 .zones i { display:block; height:100%; }
 .act-more { width:100%; margin-top:10px; }
+.act-strip { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; margin-bottom:6px; }
+.act-strip::-webkit-scrollbar { display:none; }
+.act-pill { display:flex; align-items:center; gap:6px; white-space:nowrap; background:rgba(255,255,255,.045); border:1px solid var(--border); border-radius:999px; padding:6px 11px; font-size:12px; color:rgba(255,255,255,.8); }
+.act-pill b { font-weight:600; color:#fff; }
+.act-pill span.m { font-family:var(--FM); font-size:10px; color:rgba(255,255,255,.5); }
+.wk { border-bottom:1px solid var(--border); }
+.wk:last-child { border-bottom:none; }
+.wk-head { display:flex; justify-content:space-between; align-items:center; padding:12px 0; cursor:pointer; }
+.wk-title { font-size:14px; font-weight:500; }
+.wk-meta { font-family:var(--FM); font-size:10px; color:rgba(255,255,255,.5); margin-top:2px; }
+.wk-chev { color:rgba(255,255,255,.4); transition:transform .2s; }
+.wk.open .wk-chev { transform:rotate(180deg); }
+.wk-body { display:none; padding-bottom:4px; }
+.wk.open .wk-body { display:block; }
 
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
@@ -1110,7 +1124,7 @@ function renderTrends() {
 
 /* Activity history: every Whoop activity (all sport types), with logged lift sets attached */
 let whoopWo = store.get('mt_whoop_wo', null);   // { syncedAt, workouts:[...] }
-let actFilter = 'all', actShow = 25;
+let actFilter = 'all';
 const WO_STALE_MS = 60 * 60 * 1000;
 const ACT_CATS = [
   ['lifting', 'Lifting', /weight|strength|powerlift|functional|crossfit|bodybuild/, '#7DB851'],
@@ -1148,27 +1162,54 @@ function activityItems() {
   return [...wo, ...manual].sort((a, b) => b.ts - a.ts);
 }
 
+let actFull = false;
+const openWeeks = new Set();
+// Monday-start week key for grouping
+function weekStart(ts) { const d = new Date(ts); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
+function weekLabel(ws) {
+  const thisWk = weekStart(Date.now());
+  if (ws === thisWk) return 'This week';
+  if (ws === thisWk - 7 * 86400000) return 'Last week';
+  const end = new Date(ws + 6 * 86400000), f = d => d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  return `${f(new Date(ws))} – ${f(end)}`;
+}
+const itemCat = x => x.kind === 'whoop' ? actCat(x.w.sport)[0] : 'lifting';
+const catLabel = k => (ACT_CATS.find(c => c[0] === k) || [k, 'Other'])[1];
+
 function renderHistory() {
   const items = activityItems();
   if (!items.length) { $('liftHistory').innerHTML = `<div class="rp-empty">${whoopConnected ? 'Syncing your Whoop activities…' : 'Connect Whoop in Settings to pull your activity history.'}</div>`; return; }
-  // 30-day summary per category
+  // Slim 30-day summary strip
   const since = Date.now() - 30 * 86400000, sum = new Map();
   for (const x of items) {
     if (x.ts < since) continue;
     const c = x.kind === 'whoop' ? actCat(x.w.sport) : ACT_CATS[0];
-    const e = sum.get(c[0]) || { c, n:0, min:0, dist:0 };
-    e.n++; e.min += x.w?.minutes || 0; e.dist += x.w?.distanceM || 0; sum.set(c[0], e);
+    const e = sum.get(c[0]) || { c, n:0, min:0 }; e.n++; e.min += x.w?.minutes || 0; sum.set(c[0], e);
   }
-  const cats = [...new Set(items.map(x => x.kind === 'whoop' ? actCat(x.w.sport)[0] : 'lifting'))];
-  const order = [...ACT_CATS.map(c => c[0]), 'other'].filter(k => cats.includes(k));
-  const shown = items.filter(x => actFilter === 'all' || (x.kind === 'whoop' ? actCat(x.w.sport)[0] : 'lifting') === actFilter);
-  const catLabel = k => (ACT_CATS.find(c => c[0] === k) || [k, 'Other'])[1];
-  $('liftHistory').innerHTML = `
-    <div class="ready-label" style="margin-bottom:8px">Last 30 days</div>
-    <div class="act-sum">${[...sum.values()].sort((a, b) => b.n - a.n).map(e => `<div class="act-sum-tile"><div class="k"><span class="tile-dot" style="background:${e.c[3]}"></span>${e.c[1]}</div><div class="v">${e.n}×</div><div class="s">${(e.min / 60).toFixed(1)} h${e.dist ? ` · ${(e.dist / MI).toFixed(1)} mi` : ''}</div></div>`).join('') || '<div class="rp-empty">Nothing in the last 30 days.</div>'}</div>
-    <div class="act-filters">${['all', ...order].map(k => `<button class="chip ${actFilter === k ? 'active' : ''}" data-af="${k}">${k === 'all' ? 'All' : catLabel(k)}</button>`).join('')}</div>
-    ${shown.slice(0, actShow).map(x => actRow(x)).join('')}
-    ${shown.length > actShow ? `<button class="btn-secondary act-more" data-act="more">Show more (${shown.length - actShow})</button>` : ''}`;
+  const strip = `<div class="ready-label" style="margin-bottom:8px">Last 30 days</div><div class="act-strip">${[...sum.values()].sort((a, b) => b.n - a.n).map(e => `<div class="act-pill"><span class="tile-dot" style="background:${e.c[3]}"></span>${e.c[1]} <b>${e.n}×</b><span class="m">${(e.min / 60).toFixed(1)}h</span></div>`).join('') || '<span class="rp-empty">Nothing in the last 30 days.</span>'}</div>`;
+
+  if (!actFull) {
+    $('liftHistory').innerHTML = `${strip}
+      <div class="ready-label" style="margin:12px 0 2px">Recent</div>
+      ${items.slice(0, 5).map(actRow).join('')}
+      <button class="btn-secondary act-more" data-act="full">View full history · ${items.length}</button>`;
+    return;
+  }
+  // Full history: filters + weeks collapsed to one summary line each
+  const order = [...ACT_CATS.map(c => c[0]), 'other'].filter(k => items.some(x => itemCat(x) === k));
+  const shown = items.filter(x => actFilter === 'all' || itemCat(x) === actFilter);
+  const weeks = new Map();
+  for (const x of shown) { const k = weekStart(x.ts); (weeks.get(k) || weeks.set(k, []).get(k)).push(x); }
+  if (!openWeeks.size && weeks.size) openWeeks.add([...weeks.keys()][0]);
+  $('liftHistory').innerHTML = `${strip}
+    <div class="act-filters" style="margin-top:6px">${['all', ...order].map(k => `<button class="chip ${actFilter === k ? 'active' : ''}" data-af="${k}">${k === 'all' ? 'All' : catLabel(k)}</button>`).join('')}</div>
+    ${[...weeks].map(([ws, xs]) => {
+      const min = xs.reduce((a, x) => a + (x.w?.minutes || 0), 0);
+      const types = [...new Set(xs.map(itemCat))].map(catLabel).join(', ');
+      return `<div class="wk ${openWeeks.has(ws) ? 'open' : ''}" data-wk="${ws}"><div class="wk-head" data-act="week"><div><div class="wk-title">${weekLabel(ws)}</div><div class="wk-meta">${xs.length} activit${xs.length === 1 ? 'y' : 'ies'} · ${(min / 60).toFixed(1)} h · ${esc(types)}</div></div><span class="wk-chev">▾</span></div>
+        <div class="wk-body">${openWeeks.has(ws) ? xs.map(actRow).join('') : ''}</div></div>`;
+    }).join('')}
+    <button class="btn-secondary act-more" data-act="less">Show less</button>`;
 }
 
 function actRow(x) {
@@ -1198,10 +1239,12 @@ function liftDetail(l) {
 
 $('liftHistory').addEventListener('click', e => {
   const f = e.target.closest('[data-af]');
-  if (f) { actFilter = f.dataset.af; actShow = 25; renderHistory(); return; }
+  if (f) { actFilter = f.dataset.af; openWeeks.clear(); renderHistory(); return; }
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act;
-  if (a === 'more') { actShow += 25; renderHistory(); return; }
+  if (a === 'full') { actFull = true; openWeeks.clear(); renderHistory(); return; }
+  if (a === 'less') { actFull = false; actFilter = 'all'; renderHistory(); $('liftHistory').scrollIntoView({ block:'start' }); return; }
+  if (a === 'week') { const ws = +b.closest('.wk').dataset.wk; openWeeks.has(ws) ? openWeeks.delete(ws) : openWeeks.add(ws); renderHistory(); return; }
   const row = b.closest('.act-row');
   if (a === 'toggle') return row.classList.toggle('open');
   const wid = row.dataset.wid, w = whoopWo?.workouts.find(x => x.id === wid);
@@ -2620,7 +2663,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.4';
+const BUILD = '2026-10-18.5';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
