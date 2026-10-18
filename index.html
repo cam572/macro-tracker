@@ -4,29 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Macros</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#050705">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 /* ═══════════════════════════════ TOKENS */
 :root {
-  --bg:      #080808;
-  --s1:      #0f0f0f;
-  --s2:      #161616;
-  --s3:      #1e1e1e;
-  --border:  #222;
-  --border2: #2e2e2e;
-  --lime:    #c8f135;
-  --lime2:   rgba(200,241,53,0.08);
-  --blue:    #4da6ff;
-  --orange:  #ff7a3d;
-  --purple:  #b98cff;
-  --red:     #ff3b3b;
-  --text:    #f0f0f0;
-  --muted:   #555;
-  --muted2:  #333;
-  --FD: 'Bebas Neue', sans-serif;
-  --FB: 'Space Grotesk', sans-serif;
+  /* Racing Python — GT3 RS Python Green, satin black, soft white */
+  --bg:      #050705;
+  --s1:      rgba(255,255,255,0.045);
+  --s2:      rgba(255,255,255,0.06);
+  --s3:      rgba(255,255,255,0.09);
+  --border:  rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --lime:    #7DB851;
+  --lime2:   rgba(111,174,69,0.14);
+  --acc1:    #6FAE45;
+  --acc2:    #4A8A2E;
+  --acc3:    #2C5E1E;
+  --ink:     #0A0F06;
+  --blue:    #C3CFBA;
+  --orange:  #E0A84F;
+  --purple:  #A8B89A;
+  --red:     #E5654B;
+  --text:    #F2F4F0;
+  --muted:   #8C948A;
+  --muted2:  #4A5048;
+  --FD: 'Outfit', sans-serif;
+  --FB: 'Outfit', sans-serif;
   --FM: 'JetBrains Mono', monospace;
-  --radius: 16px;
+  --radius: 22px;
+  --glass: linear-gradient(160deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025));
 }
 
 /* ═══════════════════════════════ RESET */
@@ -408,20 +416,224 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 @media (pointer: coarse) {
   input, textarea, select { font-size:16px !important; }
 }
+
+/* ═══════════════════════════════ REDESIGN — shell, glass, tabs */
+body { background:var(--bg); overflow-x:hidden; }
+.mesh { position:fixed; inset:-20%; z-index:0; pointer-events:none; filter:blur(34px);
+  background:
+    radial-gradient(40% 30% at 15% 6%, rgba(63,125,42,.30), transparent 70%),
+    radial-gradient(35% 26% at 92% 16%, rgba(35,70,25,.30), transparent 70%),
+    radial-gradient(45% 35% at 50% 104%, rgba(63,125,42,.16), transparent 70%);
+  animation: drift 18s ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translate(3%, 2%) scale(1.05); } }
+.topbar, .chat-fab, .modal-overlay { display:none !important; }
+.app { position:relative; z-index:1; max-width:520px; margin:0 auto; padding: max(18px, env(safe-area-inset-top)) 18px 130px; }
+.app-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:10px 0 18px; }
+.page-title { font-size:28px; font-weight:600; letter-spacing:-0.02em; line-height:1.1; }
+.page-sub { font-size:14px; color:rgba(255,255,255,.62); margin-top:4px; line-height:1.4; }
+.avatar { width:42px; height:42px; flex-shrink:0; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg, var(--acc1), var(--acc3)); color:var(--ink); font-weight:600; font-size:16px;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px rgba(255,255,255,.10); }
+.avatar.close { background:var(--s3); color:var(--text); font-size:18px; }
+.tab-panel { display:none; animation: fadeUp .28s ease; }
+.tab-panel.active { display:block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+/* Glass surfaces for every card */
+.glass, .card, .settings-section, .food-log-section, .ready-card, .glu-card, .body-card, .cal-hero, .fast-card, .macro-ring-tile {
+  background: var(--glass) !important; border:1px solid var(--border) !important; border-radius: var(--radius) !important;
+  backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 10px 30px rgba(0,0,0,.22); }
+.section-label { letter-spacing:.14em; color:rgba(255,255,255,.45); font-family:var(--FB); font-weight:500; font-size:11px; margin:26px 0 12px; }
+.section-label::after { background:rgba(255,255,255,.06); }
+.input-field, .macro-input-field input, .day-acc, .slot-row .input-field { background:rgba(255,255,255,.05) !important; border-color:var(--border) !important; border-radius:14px !important; }
+.input-field:focus, .macro-input-field input:focus { border-color:var(--acc1) !important; }
+.macro-input-field input { color:var(--text); }
+.btn-primary { background:linear-gradient(120deg, var(--acc1), var(--acc2)); color:var(--ink); border-radius:16px; letter-spacing:.06em; box-shadow:0 8px 20px rgba(44,94,30,.30); }
+.btn-secondary { border-color:var(--border2); color:rgba(255,255,255,.75); border-radius:14px; }
+.btn-secondary:hover { border-color:var(--acc1); color:var(--lime); }
+.ai-btn { background:rgba(255,255,255,.10); color:var(--text); border:1px solid var(--border2); border-radius:16px; }
+.ai-btn:hover { background:rgba(255,255,255,.16); }
+.ai-status.thinking { color:var(--blue); }
+.chip.active, .goal-btn.active, .slot-pick-btn.active { background:var(--lime2) !important; border-color:var(--acc1) !important; color:var(--lime) !important; }
+.chip, .goal-btn, .slot-pick-btn { border-radius:999px; }
+.goal-btn { border-radius:14px; }
+.fli-cal, .food-log-cals, .mring-val, .wn-day, .day-acc.today .day-acc-name, .pr-item-val { color:var(--lime); }
+.food-log-meal-name, .settings-section-title, .modal-title, .day-acc-name, .conn-name { font-family:var(--FB); font-weight:600; letter-spacing:-0.01em; }
+.food-log-meal-name { font-size:16px; }
+.settings-section-title { font-size:18px; }
+.fast-timer, .glu-val, .body-big, .ready-score, .rp-score-num, .lab-val, .cal-num { font-family:var(--FB); font-weight:600; letter-spacing:-0.02em; }
+.wc-bar { background:linear-gradient(180deg, var(--acc1), var(--acc2)); opacity:1; border-radius:8px 8px 3px 3px; }
+.wc-day { font-family:var(--FB); font-weight:500; font-size:12px; }
+.msg.user { background:rgba(111,174,69,.16); border-color:rgba(111,174,69,.28); }
+.msg.bot { background:var(--glass); border-color:var(--border); }
+.msg.bot strong { color:var(--lime); }
+.log-btn { background:linear-gradient(120deg, var(--acc1), var(--acc2)); color:var(--ink); border-radius:12px; }
+.send-btn { background:linear-gradient(135deg, var(--acc1), var(--acc2)); color:var(--ink); border-radius:16px; }
+.log-card { background:rgba(255,255,255,.04); border-color:rgba(111,174,69,.25); border-radius:16px; }
+
+/* Today hero */
+.hero { display:flex; align-items:center; gap:18px; padding:20px; }
+.hero-ring { position:relative; width:148px; height:148px; flex-shrink:0; }
+.hero-ring svg { position:absolute; inset:0; transform:rotate(-90deg); }
+.hero-ring svg circle.prog { transition: stroke-dashoffset .6s ease; }
+.hero-c { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.hero-kcal { font-size:34px; font-weight:600; letter-spacing:-.03em; line-height:1; }
+.hero-kcal-sub { font-size:11px; color:rgba(255,255,255,.6); margin-top:4px; letter-spacing:.08em; text-transform:uppercase; }
+.hero-mac { display:flex; flex-direction:column; gap:11px; flex:1; min-width:0; }
+.hm-k { display:flex; justify-content:space-between; font-size:13px; color:rgba(255,255,255,.7); }
+.hm-k b { color:#fff; font-weight:500; }
+.hm-bar { height:7px; border-radius:4px; background:rgba(255,255,255,.08); margin-top:6px; overflow:hidden; }
+.hm-bar i { display:block; height:100%; border-radius:4px; transition: width .6s ease; }
+.hm-bar i.over { background:linear-gradient(90deg, var(--orange), var(--red)) !important; }
+.tiles { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+.tile { padding:16px; min-height:116px; position:relative; overflow:hidden; cursor:pointer; text-align:left; color:var(--text); font-family:var(--FB); }
+.tile-lbl { font-size:12px; color:rgba(255,255,255,.62); letter-spacing:.04em; display:flex; align-items:center; gap:7px; }
+.tile-dot { width:7px; height:7px; border-radius:50%; }
+.tile-val { font-size:30px; font-weight:600; letter-spacing:-.02em; margin-top:7px; line-height:1; }
+.tile-val small { font-size:13px; font-weight:400; color:rgba(255,255,255,.55); margin-left:3px; }
+.tile-note { font-size:12px; margin-top:7px; color:rgba(255,255,255,.68); position:relative; z-index:1; }
+.tile-empty { font-size:13px; color:rgba(255,255,255,.45); margin-top:12px; }
+.tile-spark { position:absolute; left:0; right:0; bottom:0; height:44px; }
+.next-btn { width:100%; margin-top:12px; padding:16px 18px; border:none; border-radius:22px; cursor:pointer; text-align:left;
+  background:linear-gradient(120deg, var(--acc1), var(--acc2) 60%, var(--acc3)); color:var(--ink); font-family:var(--FB);
+  display:flex; align-items:center; justify-content:space-between; gap:12px; box-shadow:0 8px 22px rgba(44,94,30,.35); }
+.next-t1 { font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.8; }
+.next-t2 { font-size:17px; font-weight:600; margin-top:2px; }
+.next-go { width:40px; height:40px; flex-shrink:0; border-radius:50%; background:rgba(0,0,0,.16); display:flex; align-items:center; justify-content:center; font-size:20px; }
+.today-pills { margin:14px 0 0; }
+.pill { background:rgba(255,255,255,.05); border:1px solid var(--border); color:rgba(255,255,255,.65); font-family:var(--FB); letter-spacing:.02em; text-transform:none; font-size:11px; }
+.pill-lime { background:var(--lime2); border-color:rgba(111,174,69,.3); color:var(--lime); }
+
+/* Coach tab */
+#tab-coach.active { display:flex; flex-direction:column; height:calc(100dvh - 210px); min-height:420px; }
+.coach-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+#tab-coach .chat-body { flex:1; padding:6px 2px 12px; }
+#tab-coach .quick-row { padding:0 0 10px; }
+#tab-coach .chat-input-row { padding:0; border-top:none; gap:8px; }
+#tab-coach .chat-input-row textarea { background:rgba(255,255,255,.06) !important; }
+.clear-btn { background:rgba(255,255,255,.06); border:1px solid var(--border); color:rgba(255,255,255,.7); border-radius:12px; padding:7px 12px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-family:var(--FB); cursor:pointer; }
+
+/* Floating glass tab bar */
+.tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
+  width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
+  background:rgba(18,22,17,.62); border:1px solid rgba(255,255,255,.10); backdrop-filter:blur(24px) saturate(150%); -webkit-backdrop-filter:blur(24px) saturate(150%);
+  box-shadow:0 12px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08); }
+.tb { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; color:rgba(255,255,255,.55); letter-spacing:.04em; background:none; border:none; font-family:var(--FB); cursor:pointer; min-width:56px; }
+.tb svg { width:22px; height:22px; }
+.tb .ic { display:flex; padding:6px 12px; border-radius:14px; transition:background .2s; }
+.tb.on { color:#fff; }
+.tb.on .ic { background:linear-gradient(135deg, var(--acc1), var(--acc3)); color:var(--ink); box-shadow:0 6px 16px rgba(44,94,30,.45); }
+.tb-plus { width:54px; height:54px; border-radius:50%; border:none; background:#F2F4F0; color:var(--ink); font-size:30px; font-weight:300; line-height:1; cursor:pointer; margin-top:-8px; box-shadow:0 8px 22px rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; }
+@media (pointer: coarse) { .tb { min-width:52px; } }
 </style>
 </head>
 <body>
+<div class="mesh" aria-hidden="true"></div>
 
-<div class="topbar">
-  <div class="logo">MACRO<em>TRACK</em></div>
-  <button class="gear-btn" id="setupToggle">Setup</button>
-</div>
+<div class="app">
+  <header class="app-head">
+    <div><div class="page-title" id="pageTitle">Today</div><div class="page-sub" id="pageSub"></div></div>
+    <button class="avatar" id="setupToggle" aria-label="Settings">C</button>
+  </header>
 
-<div class="panel">
+  <!-- ═══════════ TODAY ═══════════ -->
+  <section class="tab-panel active" id="tab-today" data-tab="today">
+    <div class="hero glass" id="todayHero"></div>
+    <div class="tiles" id="todayTiles"></div>
+    <button class="next-btn" id="todayNext"></button>
+    <!-- Fasting -->
+    <div id="fastView" class="hidden">
+      <div class="fast-card">
+        <div class="fast-label">Fasting day · time since last meal</div>
+        <div class="fast-timer" id="fastTimer">00:00:00</div>
+        <div class="fast-since" id="fastSince"></div>
+        <div class="fast-edit">
+          <input class="input-field" type="datetime-local" id="fastStart">
+          <button class="btn-secondary" id="fastReset">Use last logged</button>
+        </div>
+      </div>
+      <div class="card">
+        <label class="mini-label">Fasting note</label>
+        <textarea class="input-field" id="fastNote" placeholder="How are you feeling? Hunger, energy, electrolytes..."></textarea>
+      </div>
+    </div>
 
+    <div class="today-pills" id="todayPills"></div>
+  </section>
+
+  <!-- ═══════════ LOG ═══════════ -->
+  <section class="tab-panel" id="tab-log" data-tab="log">
+    <div id="foodView">
+      <div class="section-label first">Add food</div>
+      <div class="card">
+        <div class="slot-pick" id="slotPick"></div>
+        <div class="food-name-row"><input class="input-field" id="fName" placeholder="Food name or description — e.g. 6oz ribeye + 1 cup rice"></div>
+        <div class="macro-inputs">
+          <div class="macro-input-field"><label>Cals</label><input type="number" inputmode="decimal" id="fCal" placeholder="0"></div>
+          <div class="macro-input-field"><label>Protein</label><input type="number" inputmode="decimal" id="fP" placeholder="0"></div>
+          <div class="macro-input-field"><label>Carbs</label><input type="number" inputmode="decimal" id="fC" placeholder="0"></div>
+          <div class="macro-input-field"><label>Sugar</label><input type="number" inputmode="decimal" id="fS" placeholder="0"></div>
+          <div class="macro-input-field"><label>Fat</label><input type="number" inputmode="decimal" id="fF" placeholder="0"></div>
+        </div>
+        <div class="add-actions">
+          <button class="ai-btn" id="askAi">Ask AI</button>
+          <button class="btn-primary" id="addFood">Add</button>
+        </div>
+        <div class="ai-status" id="aiStatus"></div>
+        <div class="ai-breakdown hidden" id="aiBreakdown"></div>
+      </div>
+
+      <div class="section-label">Food log</div>
+      <div id="foodLog"></div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════ INSIGHTS ═══════════ -->
+  <section class="tab-panel" id="tab-insights" data-tab="insights">
+    <div class="section-label first">Recovery</div>
+    <div id="readiness"></div>
+    <div class="section-label">Glucose</div>
+    <div id="glucose"></div>
+    <div class="section-label">Body</div>
+    <div id="bodyCard"></div>
+    <div class="section-label">Last 7 days</div>
+    <div class="card">
+      <div class="week-chart" id="weekChart"></div>
+      <div class="wc-days" id="weekDays"></div>
+      <div class="wc-legend">
+        <span><i style="background:var(--lime)"></i>Within 10%</span>
+        <span><i style="background:var(--s3);border:1px solid var(--border2)"></i>Under</span>
+        <span><i style="background:var(--orange)"></i>Over</span>
+      </div>
+    </div>
+
+    <div class="section-label">Progress report</div>
+    <div class="card">
+      <div class="rp-periods" id="rpPeriods"></div>
+      <div id="rpStats"></div>
+      <button class="ai-btn" id="rpAsk" style="width:100%;">Get coach report</button>
+      <div class="ai-status" id="rpStatus"></div>
+      <div id="rpAi"></div>
+      <button class="btn-secondary" id="rpPdf" style="width:100%;margin-top:12px;">Download PDF</button>
+    </div>
+  </section>
+
+  <!-- ═══════════ COACH ═══════════ -->
+  <section class="tab-panel" id="tab-coach" data-tab="coach">
+    <div class="coach-head"><div class="sheet-sub" id="chatSub"></div><button class="clear-btn" id="chatClear">Clear</button></div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="quick-row" id="quickRow"></div>
+    <div class="chat-input-row">
+      <textarea class="input-field" id="chatInput" rows="1" placeholder="What should I eat next?"></textarea>
+      <button class="send-btn" id="chatSend">↑</button>
+    </div>
+  </section>
+
+  <!-- ═══════════ SETTINGS ═══════════ -->
   <!-- ═══════════ SETUP ═══════════ -->
-  <div id="setup" class="hidden">
-    <div class="section-label first">Setup</div>
+  <section id="setup" class="tab-panel hidden" data-tab="settings">
 
     <div class="settings-section">
       <div class="settings-section-title">Profile</div>
@@ -500,122 +712,16 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 
     <button class="btn-primary" id="saveSetup">Save setup</button>
     <div class="settings-status" id="setupStatus"></div>
-  </div>
-
-  <!-- ═══════════ TODAY ═══════════ -->
-  <div id="today">
-    <div class="section-label" id="todayLabel">Today</div>
-    <div class="today-date" id="todayDate"></div>
-    <div class="today-title" id="todayTitle"></div>
-    <div class="today-pills" id="todayPills"></div>
-
-    <div class="cal-hero">
-      <div class="cal-top">
-        <div><span class="cal-num" id="calNum">0</span> <span class="cal-target" id="calTarget">/ 0 kcal</span></div>
-        <div class="cal-remain" id="calRemain"></div>
-      </div>
-      <div class="cal-track"><div class="cal-fill" id="calFill"></div></div>
-    </div>
-
-    <div class="macro-rings-row" id="rings"></div>
-    <div id="readiness"></div>
-    <div id="glucose"></div>
-    <div id="bodyCard"></div>
-
-    <!-- Fasting -->
-    <div id="fastView" class="hidden">
-      <div class="fast-card">
-        <div class="fast-label">Fasting day · time since last meal</div>
-        <div class="fast-timer" id="fastTimer">00:00:00</div>
-        <div class="fast-since" id="fastSince"></div>
-        <div class="fast-edit">
-          <input class="input-field" type="datetime-local" id="fastStart">
-          <button class="btn-secondary" id="fastReset">Use last logged</button>
-        </div>
-      </div>
-      <div class="card">
-        <label class="mini-label">Fasting note</label>
-        <textarea class="input-field" id="fastNote" placeholder="How are you feeling? Hunger, energy, electrolytes..."></textarea>
-      </div>
-    </div>
-
-    <!-- Food -->
-    <div id="foodView">
-      <div class="section-label">Add food</div>
-      <div class="card">
-        <div class="slot-pick" id="slotPick"></div>
-        <div class="food-name-row"><input class="input-field" id="fName" placeholder="Food name or description — e.g. 6oz ribeye + 1 cup rice"></div>
-        <div class="macro-inputs">
-          <div class="macro-input-field"><label>Cals</label><input type="number" inputmode="decimal" id="fCal" placeholder="0"></div>
-          <div class="macro-input-field"><label>Protein</label><input type="number" inputmode="decimal" id="fP" placeholder="0"></div>
-          <div class="macro-input-field"><label>Carbs</label><input type="number" inputmode="decimal" id="fC" placeholder="0"></div>
-          <div class="macro-input-field"><label>Sugar</label><input type="number" inputmode="decimal" id="fS" placeholder="0"></div>
-          <div class="macro-input-field"><label>Fat</label><input type="number" inputmode="decimal" id="fF" placeholder="0"></div>
-        </div>
-        <div class="add-actions">
-          <button class="ai-btn" id="askAi">Ask AI</button>
-          <button class="btn-primary" id="addFood">Add</button>
-        </div>
-        <div class="ai-status" id="aiStatus"></div>
-        <div class="ai-breakdown hidden" id="aiBreakdown"></div>
-      </div>
-
-      <div class="section-label">Food log</div>
-      <div id="foodLog"></div>
-    </div>
-
-    <div class="section-label">Last 7 days</div>
-    <div class="card">
-      <div class="week-chart" id="weekChart"></div>
-      <div class="wc-days" id="weekDays"></div>
-      <div class="wc-legend">
-        <span><i style="background:var(--lime)"></i>Within 10%</span>
-        <span><i style="background:var(--s3);border:1px solid var(--border2)"></i>Under</span>
-        <span><i style="background:var(--orange)"></i>Over</span>
-      </div>
-    </div>
-
-    <div class="section-label">Progress report</div>
-    <div class="card">
-      <div class="rp-periods" id="rpPeriods"></div>
-      <div id="rpStats"></div>
-      <button class="ai-btn" id="rpAsk" style="width:100%;">Get coach report</button>
-      <div class="ai-status" id="rpStatus"></div>
-      <div id="rpAi"></div>
-      <button class="btn-secondary" id="rpPdf" style="width:100%;margin-top:12px;">Download PDF</button>
-    </div>
-  </div>
+  </section>
 </div>
 
-<!-- ═══════════ CHAT ═══════════ -->
-<button class="chat-fab" id="chatFab">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-  Coach
-</button>
-
-<div class="modal-overlay" id="chatOverlay">
-  <div class="modal-sheet" id="chatSheet">
-    <div class="sheet-top" id="sheetTop">
-      <div class="modal-handle"></div>
-      <div class="sheet-title-row">
-        <div>
-          <div class="modal-title">MACRO <em>COACH</em></div>
-          <div class="sheet-sub" id="chatSub"></div>
-        </div>
-        <div class="sheet-btns">
-          <button class="modal-close clear-btn" id="chatClear">Clear</button>
-          <button class="modal-close" id="chatClose" aria-label="Close">✕</button>
-        </div>
-      </div>
-    </div>
-    <div class="chat-body" id="chatBody"></div>
-    <div class="quick-row" id="quickRow"></div>
-    <div class="chat-input-row">
-      <textarea class="input-field" id="chatInput" rows="1" placeholder="What should I eat next?"></textarea>
-      <button class="send-btn" id="chatSend">↑</button>
-    </div>
-  </div>
-</div>
+<nav class="tabbar" id="tabbar">
+  <button class="tb on" data-go="today"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>Today</button>
+  <button class="tb" data-go="log"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Log</button>
+  <button class="tb-plus" id="quickAdd" aria-label="Add food">+</button>
+  <button class="tb" data-go="insights"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>Insights</button>
+  <button class="tb" data-go="coach"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>Coach</button>
+</nav>
 
 <script>
 /* ═══════════════════════════════ CONSTANTS */
@@ -760,21 +866,117 @@ $('saveSetup').onclick = () => {
   store.set('mt_setup_done', true);
   $('setupStatus').className = 'settings-status ok';
   $('setupStatus').textContent = 'Saved.';
-  setTimeout(() => { toggleSetup(false); $('setupStatus').textContent = ''; }, 500);
+  setTimeout(() => { showTab(lastMainTab); $('setupStatus').textContent = ''; }, 500);
   activeSlot = null;
   renderToday();
 };
 
-function toggleSetup(show) {
-  const on = show ?? $('setup').classList.contains('hidden');
-  if (!on) { S = Object.assign(defaultSettings(), store.get('mt_settings', {})); } // discard unsaved edits
-  $('setup').classList.toggle('hidden', !on);
-  $('setupToggle').classList.toggle('on', on);
-  $('setupToggle').textContent = on ? 'Close' : 'Setup';
-  $('todayLabel').classList.toggle('first', !on);
-  if (on) { renderSetup(); window.scrollTo({ top:0, behavior:'smooth' }); }
+/* ═══════════════════════════════ TODAY SUMMARY */
+// The at-a-glance screen: greeting, calorie ring + macro bars, four metric tiles, and one clear next step.
+const RING_R = 64, RING_LEN = 2 * Math.PI * RING_R;
+function greeting() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; }
+
+function renderTodaySummary(sch, t, T, fasting, eatenSlots) {
+  const name = (S.name || '').trim();
+  const mealsLeft = Math.max(0, sch.count - eatenSlots.size);
+  const pLeft = Math.max(0, r0(T.p - t.p)), calLeft = r0(T.cal - t.cal);
+  if (currentTab === 'today') {
+    $('pageTitle').textContent = `${greeting()}${name ? ', ' + name : ''}`;
+    $('pageSub').textContent = fasting ? 'Fasting day — hydrate and keep electrolytes up.'
+      : !day.items.length ? `${sch.count} meal${sch.count === 1 ? '' : 's'} planned. Let's start strong.`
+      : calLeft < 0 ? `You're ${-calLeft} kcal over — keep the rest of today light.`
+      : mealsLeft ? `${pLeft}g protein to go across ${mealsLeft} meal${mealsLeft === 1 ? '' : 's'}.`
+      : 'All meals logged. Nice work today.';
+  }
+  $('setupToggle').textContent = currentTab === 'settings' ? '✕' : (name || 'C').charAt(0).toUpperCase();
+
+  // Hero: calories ring + macro bars
+  const pct = T.cal > 0 ? Math.min(t.cal / T.cal, 1) : 0;
+  const bars = [['Protein', 'p', 'var(--acc1), var(--acc2)'], ['Carbs', 'c', '#DDE3D8, #B0BBA8'], ['Sugar', 's', '#A8B89A, #7E906F'], ['Fat', 'f', 'var(--acc2), var(--acc3)']];
+  $('todayHero').innerHTML = `
+    <div class="hero-ring">
+      <svg viewBox="0 0 148 148"><defs><linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86C04E"/><stop offset=".55" stop-color="#4A8A2E"/><stop offset="1" stop-color="#2C5E1E"/></linearGradient></defs>
+        <circle cx="74" cy="74" r="${RING_R}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="14"/>
+        <circle class="prog" cx="74" cy="74" r="${RING_R}" fill="none" stroke="${calLeft < 0 ? 'var(--orange)' : 'url(#heroGrad)'}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${RING_LEN}" stroke-dashoffset="${RING_LEN * (1 - pct)}"/></svg>
+      <div class="hero-c"><div class="hero-kcal">${Math.abs(calLeft)}</div><div class="hero-kcal-sub">kcal ${calLeft < 0 ? 'over' : 'left'}</div></div>
+    </div>
+    <div class="hero-mac">${bars.map(([lbl, k, g]) => {
+      const v = t[k], tg = T[k] || 0, w = tg ? Math.min(v / tg, 1) * 100 : 0;
+      return `<div><div class="hm-k">${lbl}<span><b>${r0(v)}</b> / ${r0(tg)}g</span></div><div class="hm-bar"><i class="${v > tg && k !== 'p' ? 'over' : ''}" style="width:${w}%;background:linear-gradient(90deg,${g})"></i></div></div>`;
+    }).join('')}</div>`;
+
+  // Tiles: recovery, glucose, weight, sleep
+  const w = whoopConnected && whoopSummary(), rec = w?.today?.recovery, sl = w?.today?.sleep;
+  const recNote = rec ? (rec.score >= 67 ? 'High · good day to push' : rec.score >= 34 ? 'Moderate · train smart' : 'Low · prioritize recovery') : '';
+  const gl = gluData?.status?.configured ? gluData.status.latest : null;
+  const tr = weightTrend(), lastW = tr.dw[tr.dw.length - 1];
+  const tile = (key, label, color, val, unit, note, extra = '') => `<button class="tile glass" data-tile="${key}">
+      <div class="tile-lbl"><span class="tile-dot" style="background:${color}"></span>${label}</div>
+      ${val != null ? `<div class="tile-val" style="color:${color}">${val}<small>${unit}</small></div><div class="tile-note">${note}</div>` : `<div class="tile-empty">${note}</div>`}${extra}</button>`;
+  let spark = '';
+  if (gl) {
+    const pts = readingsBetween(Date.now() - 3 * 3600000, Date.now());
+    if (pts.length > 1) {
+      const vals = pts.map(p => p[1]), lo = Math.min(...vals) - 8, hi = Math.max(...vals) + 8, a = pts[0][0], b = pts[pts.length - 1][0];
+      const d = pts.map((p, i) => `${i ? 'L' : 'M'}${(((p[0] - a) / Math.max(1, b - a)) * 160).toFixed(1)},${(40 - ((p[1] - lo) / (hi - lo)) * 32).toFixed(1)}`).join('');
+      spark = `<svg class="tile-spark" viewBox="0 0 160 44" preserveAspectRatio="none"><defs><linearGradient id="spk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6EAE2" stop-opacity=".22"/><stop offset="1" stop-color="#E6EAE2" stop-opacity="0"/></linearGradient></defs><path d="${d} L160,44 L0,44Z" fill="url(#spk)"/><path d="${d}" fill="none" stroke="#E6EAE2" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+    }
+  }
+  $('todayTiles').innerHTML =
+    tile('recovery', 'Recovery', '#7DB851', rec?.score ?? null, '%', rec ? recNote : 'Connect Whoop in Settings') +
+    tile('glucose', 'Glucose', '#E6EAE2', gl?.v ?? null, ' mg/dL', gl ? `${TREND[gl.trend] || ''} ${Math.round((Date.now() - gl.t * 1000) / 60000)} min ago` : 'Connect Libre 3 in Settings', spark) +
+    tile('weight', 'Weight', '#9DCB72', lastW ? (lastW.kg * LB).toFixed(1) : null, ' lb', tr.change != null ? `${tr.change > 0 ? '↑' : '↓'} ${Math.abs(tr.change * LB).toFixed(1)} vs last week` : tr.avg7 != null ? `7-day avg ${(tr.avg7 * LB).toFixed(1)}` : 'Weigh in to start a trend') +
+    tile('sleep', 'Sleep', '#C3CFBA', sl?.hours ?? null, ' h', sl ? `of ${sl.needHours ?? '—'}h needed` : 'Connect Whoop in Settings');
+
+  // Next up
+  const nextSlot = sch.slots.findIndex((_, i) => !eatenSlots.has(i));
+  const perMeal = mealsLeft ? Math.round(pLeft / mealsLeft) : 0;
+  $('todayNext').innerHTML = fasting
+    ? `<div><div class="next-t1">Fasting day</div><div class="next-t2">Ask the coach how to make it easier</div></div><div class="next-go">→</div>`
+    : nextSlot >= 0
+      ? `<div><div class="next-t1">Next up · ${esc(sch.slots[nextSlot].name)}</div><div class="next-t2">${perMeal ? `~${perMeal}g protein — get ideas` : 'Get meal ideas'}</div></div><div class="next-go">→</div>`
+      : `<div><div class="next-t1">Day complete</div><div class="next-t2">Review today with your coach</div></div><div class="next-go">→</div>`;
 }
+$('todayNext').onclick = () => {
+  const sch = todaySchedule();
+  const q = sch.count === 0 ? 'How do I get through today’s fast?' : new Set(day.items.map(i => itemSlot(i, sch.count))).size >= sch.count ? 'How did today go, and what should I adjust tomorrow?' : 'What should I eat next?';
+  showTab('coach'); sendChat(q);
+};
+$('todayTiles').onclick = e => { if (e.target.closest('[data-tile]')) showTab('insights'); };
+
+/* ═══════════════════════════════ TABS */
+let currentTab = 'today', lastMainTab = 'today';
+const TAB_TITLES = { log:['Log', ''], insights:['Insights', 'Recovery, glucose, body and trends'], coach:['Coach', ''], settings:['Settings', 'Profile, schedule, connections and labs'] };
+function showTab(name) {
+  if (currentTab === 'settings' && name !== 'settings') S = Object.assign(defaultSettings(), store.get('mt_settings', {})); // discard unsaved edits
+  currentTab = name;
+  if (name !== 'settings') lastMainTab = name;
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    const on = p.dataset.tab === name;
+    p.classList.toggle('active', on);
+    if (p.id === 'setup') p.classList.toggle('hidden', !on);
+  });
+  document.querySelectorAll('#tabbar .tb').forEach(b => b.classList.toggle('on', b.dataset.go === name));
+  $('setupToggle').classList.toggle('close', name === 'settings');
+  $('setupToggle').textContent = name === 'settings' ? '✕' : (S.name || 'C').trim().charAt(0).toUpperCase();
+  if (name === 'settings') renderSetup();
+  if (name === 'coach') renderChat();
+  renderHeader();
+  window.scrollTo({ top:0 });
+}
+function renderHeader() {
+  if (currentTab === 'today') return; // Today's greeting is written by renderTodaySummary
+  const [t, sub] = TAB_TITLES[currentTab] || ['', ''];
+  $('pageTitle').textContent = t;
+  $('pageSub').textContent = currentTab === 'log' ? new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }) : currentTab === 'coach' ? '' : sub;
+}
+function toggleSetup(show) { showTab((show ?? currentTab !== 'settings') ? 'settings' : lastMainTab); }
 $('setupToggle').onclick = () => toggleSetup();
+$('tabbar').onclick = e => {
+  const b = e.target.closest('[data-go]');
+  if (b) return showTab(b.dataset.go);
+  if (e.target.closest('#quickAdd')) { showTab('log'); setTimeout(() => $('fName')?.focus(), 80); }
+};
 
 /* ═══════════════════════════════ TODAY UI */
 function ringHTML(m, val, target) {
@@ -797,8 +999,6 @@ function renderToday() {
   const t = totals(day.items);
   const T = S.targets;
 
-  $('todayDate').textContent = now.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
-  $('todayTitle').innerHTML = S.name ? `Hey <em>${esc(S.name)}</em>` : `<em>Today</em>`;
   const restr = [...S.presets, ...S.custom];
   const eatenSlots = new Set(day.items.map(i => itemSlot(i, sch.count)));
   $('todayPills').innerHTML =
@@ -807,13 +1007,7 @@ function renderToday() {
     restr.slice(0, 4).map(r => `<span class="pill" style="border:1px solid var(--border);color:var(--muted)">${esc(r)}</span>`).join('') +
     (restr.length > 4 ? `<span class="pill" style="border:1px solid var(--border);color:var(--muted)">+${restr.length - 4}</span>` : '');
 
-  $('calNum').textContent = r0(t.cal);
-  $('calTarget').textContent = `/ ${r0(T.cal)} kcal`;
-  const calLeft = T.cal - t.cal;
-  $('calRemain').textContent = calLeft >= 0 ? `${r0(calLeft)} left` : `${r0(-calLeft)} over`;
-  $('calFill').style.width = (T.cal > 0 ? Math.min(t.cal / T.cal, 1) * 100 : 0) + '%';
-  $('calFill').classList.toggle('over', calLeft < 0);
-  $('rings').innerHTML = MACROS.map(m => ringHTML(m, t[m.k], T[m.k])).join('');
+  renderTodaySummary(sch, t, T, fasting, eatenSlots);
 
   $('fastView').classList.toggle('hidden', !fasting);
   $('foodView').classList.toggle('hidden', fasting);
@@ -1222,39 +1416,8 @@ function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style
 $('chatInput').oninput = autoGrow;
 $('chatClear').onclick = () => { chat = []; saveChat(); renderChat(); };
 
-function openChat() { $('chatOverlay').classList.add('open'); $('chatSheet').style.transform = ''; renderChat(); document.body.style.overflow = 'hidden'; }
-function closeChat() { $('chatOverlay').classList.remove('open'); document.body.style.overflow = ''; }
-$('chatFab').onclick = openChat;
-$('chatClose').onclick = closeChat;
-$('chatOverlay').onclick = e => { if (e.target === $('chatOverlay')) closeChat(); };
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('chatOverlay').classList.contains('open')) closeChat(); });
-
-// Swipe down to close: drag the header anywhere, or the body when it's scrolled to the top
-(() => {
-  const sheet = $('chatSheet'); let y0 = null, dy = 0, fromBody = false;
-  const start = (e, body) => {
-    if (e.target.closest('button')) return;
-    if (body && $('chatBody').scrollTop > 0) return;
-    y0 = e.touches[0].clientY; dy = 0; fromBody = body; sheet.style.transition = 'none';
-  };
-  const move = e => {
-    if (y0 == null) return;
-    dy = e.touches[0].clientY - y0;
-    if (dy <= 0) { if (fromBody) y0 = null; sheet.style.transform = ''; return; }
-    if (fromBody) e.preventDefault();
-    sheet.style.transform = `translateY(${dy}px)`;
-  };
-  const end = () => {
-    if (y0 == null) return; y0 = null; sheet.style.transition = '';
-    if (dy > 90) { sheet.style.transform = 'translateY(100%)'; setTimeout(closeChat, 200); }
-    else sheet.style.transform = '';
-  };
-  $('sheetTop').addEventListener('touchstart', e => start(e, false), { passive:true });
-  $('chatBody').addEventListener('touchstart', e => start(e, true), { passive:true });
-  sheet.addEventListener('touchmove', move, { passive:false });
-  sheet.addEventListener('touchend', end);
-  sheet.addEventListener('touchcancel', end);
-})();
+function openChat() { showTab('coach'); }
+function closeChat() { showTab('today'); }
 
 /* ═══════════════════════════════ PROGRESS REPORT */
 let rpDays = store.get('mt_rp_days', 7);
@@ -2072,7 +2235,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-17.6';
+const BUILD = '2026-10-18.1';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
