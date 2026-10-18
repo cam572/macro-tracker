@@ -1,0 +1,18 @@
+name = "macro-coach"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+APP_URL = "https://cam572.github.io/macro-tracker/"
+
+# Created with: npx wrangler kv namespace create STORE  (id filled in on first setup)
+[[kv_namespaces]]
+binding = "STORE"
+id = "REPLACE_WITH_KV_ID"
+
+# Keep the Whoop refresh token alive (and, later, poll LibreLinkUp)
+[triggers]
+crons = ["*/30 * * * *"]
+
+[observability]
+enabled = true

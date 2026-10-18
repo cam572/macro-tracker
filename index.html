@@ -266,6 +266,24 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .wc-legend i { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
 
 /* Progress report */
+/* Readiness (Whoop) */
+.ready-card { background:var(--s1); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; }
+.ready-top { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+.ready-score { font-family:var(--FD); font-size:46px; line-height:1; }
+.ready-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); }
+.ready-sub { font-size:12px; color:var(--muted); margin-top:3px; line-height:1.4; }
+.ready-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.ready-tile { background:var(--s2); border:1px solid var(--border); border-radius:10px; padding:8px 6px; text-align:center; }
+.ready-val { font-family:var(--FD); font-size:20px; line-height:1; }
+.ready-cmp { font-family:var(--FM); font-size:9px; color:var(--muted); margin-top:3px; }
+.ready-foot { font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:10px; display:flex; justify-content:space-between; gap:8px; }
+.conn-row { display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--s2); border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-top:10px; }
+.conn-name { font-family:var(--FD); font-size:18px; letter-spacing:0.04em; }
+.conn-state { font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:2px; }
+.conn-state.on { color:var(--lime); }
+.conn-btns { display:flex; gap:6px; }
+.conn-btns .btn-secondary { padding:8px 12px; }
+
 .rp-periods { display:flex; gap:6px; margin-bottom:14px; }
 .rp-score { display:flex; align-items:baseline; gap:10px; margin-bottom:14px; }
 .rp-score-num { font-family:var(--FD); font-size:56px; color:var(--lime); line-height:1; }
@@ -407,6 +425,18 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
       <div class="settings-status" id="groceryStatus"></div>
     </div>
 
+    <div class="settings-section">
+      <div class="settings-section-title">Connections</div>
+      <div class="settings-section-sub">Your private coach server links Whoop (and soon Libre 3). These save as you type.</div>
+      <div class="settings-field"><label>Coach server URL</label><input class="input-field" id="connUrl" placeholder="https://macro-coach.yourname.workers.dev" autocomplete="off" style="font-family:var(--FM);font-size:12px;"></div>
+      <div class="settings-field"><label>Server key</label><input class="input-field" id="connKey" type="password" placeholder="Paste the key from setup" autocomplete="off" style="font-family:var(--FM);font-size:12px;"></div>
+      <div class="conn-row">
+        <div><div class="conn-name">WHOOP</div><div class="conn-state" id="whoopState">Not connected</div></div>
+        <div class="conn-btns" id="whoopBtns"></div>
+      </div>
+      <div class="settings-status" id="connStatus"></div>
+    </div>
+
     <button class="btn-primary" id="saveSetup">Save setup</button>
     <div class="settings-status" id="setupStatus"></div>
   </div>
@@ -427,6 +457,7 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
     </div>
 
     <div class="macro-rings-row" id="rings"></div>
+    <div id="readiness"></div>
 
     <!-- Fasting -->
     <div id="fastView" class="hidden">
@@ -587,6 +618,8 @@ function renderSetup() {
   renderRestrictions();
   renderGrocery();
   setGroceryStatus('');
+  renderConnections();
+  setConnStatus('');
 }
 
 function renderSchedule() {
@@ -723,6 +756,7 @@ function renderToday() {
   else renderFood(sch);
   renderWeek();
   renderReport();
+  renderReadiness();
 }
 
 function defaultSlot(sch) {
@@ -944,7 +978,12 @@ ${sch.count === 0
 - Remaining: ${rem('cal')} kcal · P ${rem('p')}g · C ${rem('c')}g · S ${rem('s')}g · F ${rem('f')}g (negative = over)
 - Weekly schedule: ${weekPlan}
 
+${whoopContext()}
+
 COACHING
+- Voice: functional-medicine coach — explain the likely root cause behind what the data shows and give specific next steps, personalized to this user's own patterns. Lifestyle and nutrition guidance only: no diagnoses, no medication advice; if something looks medically concerning, suggest talking to their clinician.
+- Training & recovery (when Whoop data is present): judge readiness against the user's OWN baselines (HRV and RHR vs their 14-day average, sleep vs their need, recent strain and how many hard days in a row) rather than fixed cut-offs. Recommend hard / moderate / light-or-recovery with a concrete session idea and a reason. If data is missing or Whoop is calibrating, say so and lean conservative. Suggest recovery days when the signals stack up, not on a fixed schedule.
+- Meal timing (directional priors, refine to the user over time): place more of the day's carbs earlier and around training (before/after a workout), lighter carbs late; on low-recovery or short-sleep days, keep protein high and favor steadier, fiber-rich carbs.
 - Plan the rest of the day around the remaining macros AND the remaining meal count and time of day — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
 - Recommend specific foods and portions, not categories.
 - ${groceryImg ? "GROCERY LIST: the user's current grocery list photo is attached to their first message. When suggesting meals to make at home, build them from those groceries (plus basic pantry staples like salt, pepper, spices, and a compliant cooking fat) sized to their remaining macros and meal count, with portions. If asked what's on the list, read every item you can make out and flag anything that breaks their restrictions. Restaurant questions are unaffected." : 'No grocery list on file.'}
@@ -996,7 +1035,7 @@ function renderChat() {
     `${r0(T.cal - t.cal)} kcal · ${r0(T.p - t.p)}g protein left · ${sch.count - new Set(day.items.map(i => itemSlot(i, sch.count))).size} meals to go`;
   const quick = sch.count === 0
     ? ['How do I get through the hunger?', 'Electrolytes for today?', 'Plan my break-fast meal for tomorrow']
-    : ['What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
+    : [...(whoopConnected ? ['Should I lift today?'] : []), 'What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
   $('quickRow').innerHTML = quick.map(q => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('');
 }
 
@@ -1438,9 +1477,143 @@ ${st.avg ? `Daily averages: ${r0(st.avg.cal)} kcal · P ${r0(st.avg.p)} · C ${r
   $('rpAsk').disabled = false;
 };
 
+/* ═══════════════════════════════ CONNECTIONS (coach server) */
+// The page talks only to the user's own Worker; Whoop tokens never touch the phone.
+let conn = Object.assign({ url:'', key:'' }, store.get('mt_conn', {}));
+let whoopData = store.get('mt_whoop', null);          // { syncedAt, days:[...] }
+let whoopConnected = store.get('mt_whoop_on', false);
+const WHOOP_STALE_MS = 30 * 60 * 1000;
+
+async function server(path, opts = {}) {
+  if (!conn.url || !conn.key) throw new Error('Add your coach server URL and key in Setup → Connections.');
+  const res = await fetch(conn.url.replace(/\/+$/, '') + path, {
+    ...opts, headers: { Authorization: `Bearer ${conn.key}`, ...(opts.headers || {}) },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new Error('The server key is wrong — check Setup → Connections.');
+  if (!res.ok) { const e = new Error(data.message || `Server error ${res.status}`); e.code = data.error; throw e; }
+  return data;
+}
+
+function setConnStatus(msg, cls) { $('connStatus').textContent = msg; $('connStatus').className = 'settings-status ' + (cls || ''); }
+function renderConnections() {
+  $('connUrl').value = conn.url; $('connKey').value = conn.key;
+  const synced = whoopData?.syncedAt ? ` · synced ${new Date(whoopData.syncedAt).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })}` : '';
+  $('whoopState').textContent = whoopConnected ? 'Connected' + synced : 'Not connected';
+  $('whoopState').className = 'conn-state' + (whoopConnected ? ' on' : '');
+  $('whoopBtns').innerHTML = whoopConnected
+    ? `<button class="btn-secondary" data-w="sync">Sync</button><button class="btn-secondary" data-w="off">Disconnect</button>`
+    : `<button class="btn-secondary" data-w="on">Connect</button>`;
+}
+const saveConn = () => { conn = { url: $('connUrl').value.trim(), key: $('connKey').value.trim() }; store.set('mt_conn', conn); };
+$('connUrl').oninput = saveConn; $('connKey').oninput = saveConn;
+$('connUrl').onchange = $('connKey').onchange = () => { saveConn(); if (conn.url && conn.key) refreshWhoopStatus(true); };
+
+$('whoopBtns').onclick = async e => {
+  const b = e.target.closest('[data-w]'); if (!b) return;
+  try {
+    if (b.dataset.w === 'on') {
+      setConnStatus('Opening Whoop…', '');
+      const { url } = await server('/whoop/connect', { method:'POST' });
+      // Whoop's sign-in finishes in the browser; the server keeps the tokens, so this app
+      // just re-checks status when you come back to it.
+      location.href = url;
+    } else if (b.dataset.w === 'off') {
+      await server('/whoop/disconnect', { method:'POST' });
+      whoopConnected = false; whoopData = null;
+      store.set('mt_whoop_on', false); store.set('mt_whoop', null);
+      setConnStatus('Whoop disconnected.', 'ok'); renderConnections(); renderToday();
+    } else {
+      setConnStatus('Syncing Whoop…', ''); await syncWhoop(true); setConnStatus('Whoop synced.', 'ok');
+    }
+  } catch (err) { setConnStatus(err.message, 'err'); }
+};
+
+async function refreshWhoopStatus(sync) {
+  if (!conn.url || !conn.key) return;
+  try {
+    const st = await server('/whoop/status');
+    whoopConnected = !!st.connected; store.set('mt_whoop_on', whoopConnected);
+    if (!$('setup').classList.contains('hidden')) renderConnections();
+    if (whoopConnected && sync) await syncWhoop();
+  } catch {}
+}
+
+async function syncWhoop(force) {
+  if (!whoopConnected) return;
+  if (!force && whoopData && Date.now() - Date.parse(whoopData.syncedAt) < WHOOP_STALE_MS) return;
+  try {
+    whoopData = await server('/whoop/days?days=30');
+    store.set('mt_whoop', whoopData);
+  } catch (err) {
+    if (err.code === 'whoop_not_connected') { whoopConnected = false; store.set('mt_whoop_on', false); }
+    if (force) throw err;
+  }
+  renderToday();
+  if (!$('setup').classList.contains('hidden')) renderConnections();
+}
+
+// Personal baselines: compare today to your own recent average, not population cut-offs
+function whoopSummary() {
+  const days = whoopData?.days || [];
+  if (!days.length) return null;
+  const today = days.find(d => d.date === todayKey) || null;
+  const prior = days.filter(d => d.date < todayKey).slice(-14);
+  const avg = f => { const v = prior.map(f).filter(x => x != null); return v.length >= 3 ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  return {
+    today, yesterday: prior[prior.length - 1] || null, prior,
+    base: { hrv: avg(d => d.recovery?.hrv), rhr: avg(d => d.recovery?.rhr), sleep: avg(d => d.sleep?.hours), strain: avg(d => d.strain?.score), recovery: avg(d => d.recovery?.score) },
+  };
+}
+
+function renderReadiness() {
+  const w = whoopConnected && whoopSummary();
+  if (!w || !w.today) { $('readiness').innerHTML = ''; return; }
+  const { today, yesterday, base } = w, rec = today.recovery, sl = today.sleep;
+  // Whoop's own recovery bands (green 67+, yellow 34-66, red <34)
+  const recColor = rec?.score == null ? 'var(--muted)' : rec.score >= 67 ? 'var(--lime)' : rec.score >= 34 ? '#f5c542' : 'var(--red)';
+  const delta = (v, b, unit, higherIsGood) => {
+    if (v == null || b == null) return 'no baseline yet';
+    const d = v - b; if (Math.abs(d) < (unit === 'h' ? 0.1 : 1)) return 'at your avg';
+    const good = higherIsGood ? d > 0 : d < 0;
+    return `<span style="color:${good ? 'var(--lime)' : 'var(--orange)'}">${d > 0 ? '+' : ''}${unit === 'h' ? d.toFixed(1) : Math.round(d)}${unit}</span> vs avg`;
+  };
+  const workouts = [...(yesterday?.workouts || []), ...(today.workouts || [])].slice(-2);
+  $('readiness').innerHTML = `<div class="ready-card">
+    <div class="ready-top">
+      <div class="ready-score" style="color:${recColor}">${rec?.score != null ? rec.score + '%' : '—'}</div>
+      <div><div class="ready-label">Whoop recovery${rec?.calibrating ? ' · calibrating' : ''}</div>
+        <div class="ready-sub">${rec ? 'Tap Coach → “Should I lift today?”' : 'Recovery not scored yet today'}</div></div>
+    </div>
+    <div class="ready-grid">
+      <div class="ready-tile"><div class="ready-val">${rec?.hrv != null ? Math.round(rec.hrv) : '—'}</div><div class="ready-label">HRV ms</div><div class="ready-cmp">${delta(rec?.hrv, base.hrv, '', true)}</div></div>
+      <div class="ready-tile"><div class="ready-val">${rec?.rhr ?? '—'}</div><div class="ready-label">RHR</div><div class="ready-cmp">${delta(rec?.rhr, base.rhr, '', false)}</div></div>
+      <div class="ready-tile"><div class="ready-val">${sl?.hours ?? '—'}<span style="font-size:12px">h</span></div><div class="ready-label">Sleep</div><div class="ready-cmp">${sl?.needHours ? `need ${sl.needHours}h` : delta(sl?.hours, base.sleep, 'h', true)}</div></div>
+      <div class="ready-tile"><div class="ready-val">${yesterday?.strain?.score ?? '—'}</div><div class="ready-label">Strain y'day</div><div class="ready-cmp">${base.strain != null ? `avg ${base.strain.toFixed(1)}` : '&nbsp;'}</div></div>
+    </div>
+    <div class="ready-foot"><span>${workouts.length ? workouts.map(x => `${esc(x.sport)} ${x.minutes}m`).join(' · ') : 'No recent workouts'}</span><span>${sl?.performance != null ? `sleep ${sl.performance}%` : ''}</span></div>
+  </div>`;
+}
+
+// Whoop context for the coach — directional, relative to the user's own baselines
+function whoopContext() {
+  if (!whoopConnected) return 'WHOOP: not connected.';
+  const w = whoopSummary();
+  if (!w) return 'WHOOP: connected, but no data synced yet — coach from food data alone.';
+  const f = (v, d = 0) => v == null ? '—' : (+v).toFixed(d);
+  const t = w.today, rec = t?.recovery, sl = t?.sleep;
+  const recent = w.prior.slice(-7).map(d => `  ${d.date}: recovery ${d.recovery?.score ?? '—'}% · HRV ${f(d.recovery?.hrv)} · RHR ${d.recovery?.rhr ?? '—'} · sleep ${d.sleep?.hours ?? '—'}h · strain ${d.strain?.score ?? '—'}${d.workouts.length ? ' · ' + d.workouts.map(x => `${x.sport} ${x.minutes}m strain ${x.strain ?? '—'}`).join(', ') : ''}`).join('\n');
+  return `WHOOP (synced ${whoopData.syncedAt ? new Date(whoopData.syncedAt).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }) : '—'}):
+- Today: ${rec ? `recovery ${rec.score}%${rec.calibrating ? ' (Whoop still calibrating — low confidence)' : ''} · HRV ${f(rec.hrv)} ms (14-day avg ${f(w.base.hrv)}) · RHR ${rec.rhr} (avg ${f(w.base.rhr)})` : 'recovery not scored yet'}
+- Last night: ${sl ? `${sl.hours}h asleep of ${sl.needHours ?? '—'}h needed · performance ${sl.performance ?? '—'}% · deep ${sl.deepHours}h · REM ${sl.remHours}h · bedtime ${new Date(sl.bedtime).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })}` : 'no scored sleep'}
+- Today so far: strain ${t?.strain?.score ?? '—'}${t?.workouts?.length ? ' · workouts: ' + t.workouts.map(x => `${x.sport} ${x.minutes}m (${new Date(x.start).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })})`).join(', ') : ''}
+- Previous 7 days:
+${recent || '  (none)'}`;
+}
+
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-06.2';
+const BUILD = '2026-10-17.1';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
@@ -1452,7 +1625,12 @@ async function checkForUpdate() {
   } catch {}
 }
 checkForUpdate();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkForUpdate(); refreshWhoopStatus(true); } });
+if (location.hash.startsWith('#whoop=')) {
+  const ok = location.hash === '#whoop=connected';
+  history.replaceState(null, '', location.pathname);
+  setTimeout(() => { toggleSetup(true); setConnStatus(ok ? 'Whoop connected — syncing…' : 'Whoop connection failed — try again.', ok ? 'ok' : 'err'); refreshWhoopStatus(true); }, 50);
+} else refreshWhoopStatus(true);
 
 /* ═══════════════════════════════ INIT */
 renderToday();

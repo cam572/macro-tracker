@@ -1,0 +1,64 @@
+// Macro Coach backend — a thin, single-user Cloudflare Worker.
+// Holds the secrets the public tracker page can't: Whoop OAuth tokens today, LibreLinkUp next.
+// Each data source lives behind its own adapter so it can be swapped without touching the page.
+//
+// Secrets (wrangler secret put): APP_KEY, ENC_KEY, WHOOP_CLIENT_ID, WHOOP_CLIENT_SECRET
+// Vars (wrangler.toml): APP_URL
+// KV binding: STORE
+
+import { whoop } from './whoop.js';
+
+const json = (data, status = 200, env) => new Response(JSON.stringify(data), {
+  status, headers: { 'Content-Type': 'application/json', ...cors(env) },
+});
+const cors = env => ({
+  'Access-Control-Allow-Origin': new URL(env.APP_URL).origin,
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Vary': 'Origin',
+});
+
+// Constant-time compare so the app key can't be guessed byte by byte
+function authed(req, env) {
+  const got = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  const want = env.APP_KEY || '';
+  if (!want || got.length !== want.length) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i++) diff |= got.charCodeAt(i) ^ want.charCodeAt(i);
+  return diff === 0;
+}
+
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    if (req.method === 'OPTIONS') return new Response(null, { headers: cors(env) });
+
+    try {
+      // OAuth redirect lands here from Whoop's site — authorized by the one-time state, not the app key
+      if (url.pathname === '/whoop/callback') {
+        const ok = await whoop.handleCallback(url, env);
+        return Response.redirect(`${env.APP_URL}#whoop=${ok ? 'connected' : 'failed'}`, 302);
+      }
+
+      if (!authed(req, env)) return json({ error: 'unauthorized' }, 401, env);
+
+      switch (`${req.method} ${url.pathname}`) {
+        case 'GET /health':           return json({ ok: true, sources: { whoop: await whoop.status(env) } }, 200, env);
+        case 'POST /whoop/connect':   return json({ url: await whoop.authorizeUrl(env, url.origin) }, 200, env);
+        case 'GET /whoop/status':     return json(await whoop.status(env), 200, env);
+        case 'GET /whoop/days':       return json(await whoop.days(env, Math.min(+url.searchParams.get('days') || 14, 60)), 200, env);
+        case 'POST /whoop/disconnect':await whoop.disconnect(env); return json({ ok: true }, 200, env);
+      }
+      return json({ error: 'not found' }, 404, env);
+    } catch (err) {
+      // Never echo health data or tokens — just the error kind
+      console.log('error', url.pathname, err.code || err.message);
+      return json({ error: err.code || 'server_error', message: err.publicMessage || 'Something went wrong' }, err.status || 500, env);
+    }
+  },
+
+  // Keep the Whoop refresh token alive and pre-refresh access tokens off the request path
+  async scheduled(_event, env) {
+    await whoop.refreshIfNeeded(env, 15 * 60).catch(err => console.log('cron refresh failed', err.code || err.message));
+  },
+};
