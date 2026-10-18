@@ -315,6 +315,18 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .lab-del { background:none; border:none; color:var(--muted); font-size:11px; cursor:pointer; padding:0; text-align:right; }
 .lab-del:hover { color:var(--red); }
 
+/* Body (weight / body fat) */
+.body-card { background:var(--s1); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; }
+.body-top { display:flex; align-items:flex-end; gap:16px; margin-bottom:8px; }
+.body-big { font-family:var(--FD); font-size:40px; line-height:1; }
+.body-big small { font-family:var(--FM); font-size:10px; color:var(--muted); margin-left:3px; }
+.body-sub { font-family:var(--FM); font-size:10px; color:var(--muted); margin-top:3px; }
+.body-entry { display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-top:10px; }
+.body-entry .input-field { padding:9px 10px; font-size:13px; font-family:var(--FM); }
+.body-entry .btn-secondary { padding:9px 14px; }
+.flag-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.flag-row .chip { font-size:11px; padding:5px 10px; }
+
 .rp-periods { display:flex; gap:6px; margin-bottom:14px; }
 .rp-score { display:flex; align-items:baseline; gap:10px; margin-bottom:14px; }
 .rp-score-num { font-family:var(--FD); font-size:56px; color:var(--lime); line-height:1; }
@@ -508,6 +520,7 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
     <div class="macro-rings-row" id="rings"></div>
     <div id="readiness"></div>
     <div id="glucose"></div>
+    <div id="bodyCard"></div>
 
     <!-- Fasting -->
     <div id="fastView" class="hidden">
@@ -810,6 +823,7 @@ function renderToday() {
   renderReport();
   renderReadiness();
   renderGlucose();
+  renderBody();
 }
 
 function defaultSlot(sch) {
@@ -1037,9 +1051,12 @@ ${glucoseContext()}
 
 ${labContext()}
 
+${bodyContext()}
+
 COACHING
 - Voice: functional-medicine coach — explain the likely root cause behind what the data shows and give specific next steps, personalized to this user's own patterns. Lifestyle and nutrition guidance only: no diagnoses, no medication advice; if something looks medically concerning, suggest talking to their clinician.
 - Training & recovery (when Whoop data is present): judge readiness against the user's OWN baselines (HRV and RHR vs their 14-day average, sleep vs their need, recent strain and how many hard days in a row) rather than fixed cut-offs. Recommend hard / moderate / light-or-recovery with a concrete session idea and a reason. If data is missing or Whoop is calibrating, say so and lean conservative. Suggest recovery days when the signals stack up, not on a fixed schedule.
+- Weight & body composition: judge the 7-day average and its direction, never a single weigh-in. Day-to-day jumps after high-sodium, alcohol, sauna/sweat, travel, big carb days or a new/heavier lifting stimulus are usually water and glycogen — say so plainly ("this looks like water, not fat") so the user doesn't get discouraged. Use body fat % trend alongside weight to tell fat loss from muscle loss.
 - Labs as a baseline: use them to calibrate how strict to be. Elevated fasting insulin, HbA1c or fasting glucose (per the lab's range) → tighter glycemic guardrails (smaller carb portions per meal, carbs earlier/around training, more protein/fiber first); clean metabolic labs → looser. Lipids, hs-CRP, vitamin D, thyroid and ferritin inform food quality, fiber, omega-3, sunlight/sleep and recovery advice. Explain the likely root cause in plain language and the lifestyle levers that move each marker, and point out trends across draws. Never diagnose or suggest medication/dose changes; for out-of-range or worsening values, suggest discussing them with their clinician.
 - Glucose (when CGM data is present): learn THIS user's responses from the meal-response list — which foods, combos, portions, times of day and pre/post-workout timing give them smaller rises and faster returns to baseline — and steer suggestions toward what works for them. Patterns like pairing carbs with protein/fat/fiber or walking after meals should be recommended because their data supports it (cite the meals), not as generic rules. With little data, be conservative and say you're still learning their patterns. If the sensor flags LOW/HIGH repeatedly, or values look concerning, suggest they talk to their clinician.
 - Meal timing (directional priors, refine to the user over time): place more of the day's carbs earlier and around training (before/after a workout), lighter carbs late; on low-recovery or short-sleep days, keep protein high and favor steadier, fiber-rich carbs.
@@ -1600,7 +1617,7 @@ $('whoopBtns').onclick = async e => {
 
 async function refreshWhoopStatus(sync) {
   if (!conn.url || !conn.key) return;
-  if (sync) syncGlucose();
+  if (sync) { syncGlucose(); syncBody(); }
   try {
     const st = await server('/whoop/status');
     whoopConnected = !!st.connected; store.set('mt_whoop_on', whoopConnected);
@@ -1679,6 +1696,106 @@ function whoopContext() {
 - Today so far: strain ${t?.strain?.score ?? '—'}${t?.workouts?.length ? ' · workouts: ' + t.workouts.map(x => `${x.sport} ${x.minutes}m (${new Date(x.start).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })})`).join(', ') : ''}
 - Previous 7 days:
 ${recent || '  (none)'}`;
+}
+
+/* ═══════════════════════════════ BODY (weight / body fat) */
+// Fed by the scale via Apple Health → iPhone Shortcut → coach server, plus manual entries.
+let bodyData = store.get('mt_body', null);          // { syncedAt, entries:[{t, kg, bf, leanKg, source}] }
+let bodyLocal = store.get('mt_body_local', []);     // manual entries not yet on the server
+const BODY_STALE_MS = 10 * 60 * 1000;
+const LB = 2.20462;
+const DAY_FLAGS = [['sodium','High sodium'], ['sauna','Sauna / sweat'], ['lift','Lifted'], ['alcohol','Alcohol'], ['travel','Travel / poor sleep']];
+
+async function syncBody(force) {
+  if (!conn.url || !conn.key) return;
+  if (!force && bodyData && Date.now() - Date.parse(bodyData.syncedAt) < BODY_STALE_MS) return;
+  try {
+    // Push any manual entries made offline, then pull the full log
+    for (const e of [...bodyLocal]) {
+      await server('/body', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ weight: e.kg, weightUnit:'kg', bodyFat: e.bf, measuredAt: new Date(e.t).toISOString(), source:'manual' }) });
+      bodyLocal = bodyLocal.filter(x => x !== e); store.set('mt_body_local', bodyLocal);
+    }
+    const d = await server('/body?days=365');
+    bodyData = { syncedAt: new Date().toISOString(), entries: d.entries }; store.set('mt_body', bodyData);
+  } catch (err) { if (force) throw err; }
+  renderToday();
+}
+
+function bodyEntries() {
+  const all = [...(bodyData?.entries || []), ...bodyLocal];
+  return all.sort((a, b) => a.t - b.t);
+}
+// One weight per day: the first reading of the day (closest to the fasted morning weigh-in)
+function dailyWeights() {
+  const m = new Map();
+  for (const e of bodyEntries()) { if (e.kg == null) continue; const k = dateKey(new Date(e.t)); if (!m.has(k)) m.set(k, e); }
+  return [...m.entries()].map(([dk, e]) => ({ dk, kg: e.kg, bf: e.bf }));
+}
+const avgOf = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+function weightTrend() {
+  const dw = dailyWeights(), now = Date.now();
+  const inRange = (from, to) => dw.filter(x => { const t = Date.parse(x.dk + 'T12:00:00'); return t > now - from * 86400000 && t <= now - to * 86400000; });
+  const thisWk = inRange(7, -1), lastWk = inRange(14, 7);
+  const a = avgOf(thisWk.map(x => x.kg)), b = avgOf(lastWk.map(x => x.kg));
+  const bfs = bodyEntries().filter(e => e.bf != null);
+  return { dw, avg7: a, prev7: b, change: a != null && b != null ? a - b : null, n7: thisWk.length, latestBf: bfs[bfs.length - 1] || null, firstBf30: bfs.find(e => e.t > now - 30 * 86400000) || null };
+}
+
+function renderBody() {
+  const tr = weightTrend(), last = tr.dw[tr.dw.length - 1];
+  const flags = day.flags || {};
+  const lb = kg => (kg * LB).toFixed(1);
+  let chart = '';
+  const pts = tr.dw.slice(-30);
+  if (pts.length > 1) {
+    const vals = pts.map(p => p.kg), lo = Math.min(...vals) - 0.3, hi = Math.max(...vals) + 0.3;
+    const X = i => (i / (pts.length - 1)) * 300, Y = v => 56 - ((v - lo) / (hi - lo)) * 50;
+    // 7-day rolling average line over daily dots
+    const roll = pts.map((p, i) => avgOf(pts.slice(Math.max(0, i - 6), i + 1).map(x => x.kg)));
+    chart = `<svg class="glu-chart" style="height:60px" viewBox="0 0 300 60" preserveAspectRatio="none">
+      ${pts.map((p, i) => `<circle cx="${X(i)}" cy="${Y(p.kg)}" r="2" fill="var(--muted)"/>`).join('')}
+      <path d="${roll.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('')}" fill="none" stroke="var(--lime)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  $('bodyCard').innerHTML = `<div class="body-card">
+    <div class="body-top">
+      <div><div class="ready-label">Weight</div><div class="body-big">${last ? lb(last.kg) : '—'}<small>lb</small></div>
+        <div class="body-sub">${tr.avg7 != null ? `7-day avg ${lb(tr.avg7)}${tr.change != null ? ` · ${tr.change > 0 ? '+' : ''}${(tr.change * LB).toFixed(1)} vs last wk` : ''}` : 'log a few days for a trend'}</div></div>
+      <div><div class="ready-label">Body fat</div><div class="body-big">${tr.latestBf ? tr.latestBf.bf.toFixed(1) : '—'}<small>%</small></div>
+        <div class="body-sub">${tr.latestBf && tr.firstBf30 && tr.firstBf30 !== tr.latestBf ? `${(tr.latestBf.bf - tr.firstBf30.bf) > 0 ? '+' : ''}${(tr.latestBf.bf - tr.firstBf30.bf).toFixed(1)} in 30d` : '&nbsp;'}</div></div>
+    </div>
+    ${chart}
+    <div class="body-entry">
+      <input class="input-field" id="bwIn" type="number" inputmode="decimal" placeholder="Weight lb">
+      <input class="input-field" id="bfIn" type="number" inputmode="decimal" placeholder="Body fat %">
+      <button class="btn-secondary" id="bodyAdd">Log</button>
+    </div>
+    <div class="flag-row">${DAY_FLAGS.map(([k, label]) => `<button class="chip ${flags[k] ? 'active' : ''}" data-flag="${k}">${label}</button>`).join('')}</div>
+    <div class="ai-status" id="bodyStatus"></div>
+  </div>`;
+}
+
+$('bodyCard').addEventListener('click', async e => {
+  const f = e.target.closest('[data-flag]');
+  if (f) { day.flags = { ...(day.flags || {}), [f.dataset.flag]: !(day.flags || {})[f.dataset.flag] }; saveDay(todayKey, day); renderBody(); return; }
+  if (e.target.id !== 'bodyAdd') return;
+  const w = parseFloat($('bwIn').value), bf = parseFloat($('bfIn').value);
+  if (isNaN(w) && isNaN(bf)) { $('bodyStatus').textContent = 'Enter a weight and/or body fat.'; $('bodyStatus').className = 'ai-status err'; return; }
+  const entry = { t: Date.now(), kg: isNaN(w) ? null : Math.round(w / LB * 100) / 100, bf: isNaN(bf) ? null : bf, source:'manual' };
+  bodyLocal.push(entry); store.set('mt_body_local', bodyLocal);
+  renderBody(); syncBody(true).catch(() => {});
+});
+
+// Body context for the coach: daily weights with that day's context flags, trend, body fat
+function bodyContext() {
+  const tr = weightTrend();
+  if (!tr.dw.length) return 'BODY: no weigh-ins yet.';
+  const flagsFor = dk => { const f = (dk === todayKey ? day : loadDay(dk)).flags || {}; return DAY_FLAGS.filter(([k]) => f[k]).map(([, l]) => l).join(', '); };
+  const lines = tr.dw.slice(-21).map(x => `  ${x.dk}: ${(x.kg * LB).toFixed(1)} lb${x.bf != null ? ` · ${x.bf.toFixed(1)}% BF` : ''}${flagsFor(x.dk) ? ` · flags: ${flagsFor(x.dk)}` : ''}`).join('\n');
+  const yflags = flagsFor(dateKey(new Date(Date.now() - 86400000)));
+  return `BODY (Hume scale via Apple Health; first weigh-in of each day, lb):
+${lines}
+- 7-day avg ${tr.avg7 != null ? (tr.avg7 * LB).toFixed(1) : '—'} lb (${tr.n7} weigh-ins)${tr.change != null ? `, ${(tr.change * LB) > 0 ? '+' : ''}${(tr.change * LB).toFixed(1)} lb vs the prior 7-day avg` : ''}
+- Today's flags: ${flagsFor(todayKey) || 'none'}${yflags ? ` · yesterday: ${yflags}` : ''}`;
 }
 
 /* ═══════════════════════════════ LABS */
@@ -1952,7 +2069,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-17.4';
+const BUILD = '2026-10-17.5';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();

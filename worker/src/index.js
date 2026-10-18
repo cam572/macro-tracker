@@ -8,6 +8,7 @@
 
 import { whoop } from './whoop.js';
 import { libre } from './libre.js';
+import { body } from './body.js';
 
 const json = (data, status = 200, env) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json', ...cors(env) },
@@ -55,6 +56,9 @@ export default {
         case 'GET /whoop/status':     return json(await whoop.status(env), 200, env);
         case 'GET /whoop/days':       return json(await whoop.days(env, Math.min(+url.searchParams.get('days') || 14, 60)), 200, env);
         case 'POST /whoop/disconnect':await whoop.disconnect(env); return json({ ok: true }, 200, env);
+        case 'POST /body':            return json(await body.add(env, await req.json().catch(() => ({}))), 200, env);
+        case 'GET /body':             return json(await body.list(env, Math.min(+url.searchParams.get('days') || 120, 730)), 200, env);
+        case 'POST /body/delete':     return json(await body.remove(env, +(await req.json().catch(() => ({}))).t), 200, env);
         case 'GET /libre/status':     return json(await libre.status(env), 200, env);
         case 'GET /libre/readings':   return json(await libre.readings(env, Math.min(+url.searchParams.get('hours') || 24, 24 * 30)), 200, env);
         case 'POST /libre/poll':      return json(await libre.pollNow(env), 200, env);
