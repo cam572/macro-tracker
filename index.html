@@ -609,6 +609,29 @@ body { background:var(--bg); overflow-x:hidden; }
 .wk-body { display:none; padding-bottom:4px; }
 .wk.open .wk-body { display:block; }
 
+/* Progress photos */
+.pp-row { display:flex; gap:8px; align-items:center; margin-top:14px; overflow-x:auto; padding-bottom:2px; }
+.pp-row::-webkit-scrollbar { display:none; }
+.pp-add { width:58px; height:76px; flex-shrink:0; border-radius:14px; border:1px dashed var(--border2); background:rgba(255,255,255,.03); color:rgba(255,255,255,.7); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:10px; font-family:var(--FB); cursor:pointer; position:relative; }
+.pp-add svg { width:20px; height:20px; }
+.pp-due { position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:var(--acc1); box-shadow:0 0 0 3px rgba(111,174,69,.2); }
+.pp-thumb { width:58px; height:76px; flex-shrink:0; border-radius:14px; overflow:hidden; border:1px solid var(--border); cursor:pointer; position:relative; padding:0; background:#111; }
+.pp-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.pp-thumb span { position:absolute; left:0; right:0; bottom:0; font-size:9px; font-family:var(--FM); color:#fff; background:linear-gradient(0deg, rgba(0,0,0,.7), transparent); padding:8px 4px 3px; text-align:center; }
+.pp-toast { margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(111,174,69,.12); border:1px solid rgba(111,174,69,.3); border-radius:14px; padding:10px 12px; font-size:13px; }
+.pp-toast button { padding:8px 12px; font-size:11px; }
+.pp-overlay { position:fixed; inset:0; z-index:300; background:rgba(3,4,3,.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); display:none; flex-direction:column; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.pp-overlay.open { display:flex; }
+.pp-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.pp-top .t { font-size:20px; font-weight:600; }
+.pp-cmp { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; }
+.pp-side { display:flex; flex-direction:column; min-height:0; }
+.pp-side img { flex:1; min-height:0; width:100%; object-fit:cover; border-radius:16px; background:#111; }
+.pp-side select { margin-top:8px; padding:9px 10px; font-size:13px; }
+.pp-stats { font-family:var(--FM); font-size:11px; color:rgba(255,255,255,.65); text-align:center; margin-top:6px; }
+.pp-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.pp-actions button { flex:1; padding:11px; font-size:11px; min-width:120px; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -822,6 +845,19 @@ body { background:var(--bg); overflow-x:hidden; }
     <button class="btn-primary" id="saveSetup">Save setup</button>
     <div class="settings-status" id="setupStatus"></div>
   </section>
+</div>
+
+<input type="file" id="ppFile" accept="image/*" hidden>
+<div class="pp-overlay" id="ppOverlay">
+  <div class="pp-top"><div class="t">Progress photos</div><button class="modal-close" id="ppClose" aria-label="Close" style="position:static">✕</button></div>
+  <div class="pp-cmp" id="ppCmp"></div>
+  <div class="pp-actions">
+    <button class="btn-secondary" id="ppAsk">Ask coach to compare</button>
+    <button class="btn-secondary" id="ppSave">Save to Photos</button>
+    <button class="btn-secondary" id="ppSaveAll">Save all to Photos</button>
+    <button class="btn-secondary" id="ppDel">Delete right photo</button>
+  </div>
+  <div class="ai-status" id="ppStatus" style="text-align:center"></div>
 </div>
 
 <nav class="tabbar" id="tabbar">
@@ -1814,22 +1850,22 @@ const photoDB = (() => {
     clear: () => tx('readwrite', s => s.delete('grocery')).catch(() => {}),
   };
 })();
-const saveChat = () => store.set('mt_chat', chat.map(({ img, hadImage, imgId, ...m }) => m));
+const saveChat = () => store.set('mt_chat', chat.map(({ img, imgs, hadImage, imgId, ...m }) => m)); // photos never persisted in chat
 
-async function sendChat(text) {
+async function sendChat(text, imgs) {
   text = (text || '').trim();
   if (!text || chatBusy) return;
-  chat.push({ role:'user', content:text });
+  chat.push(imgs?.length ? { role:'user', content:text, imgs } : { role:'user', content:text });
   $('chatInput').value = ''; autoGrow();
   chatBusy = true; $('chatSend').disabled = true; renderChat();
   try {
-    const history = chat.slice(-30).map(m => ({ role:m.role, content:m.content }));
+    const imgBlock = d => ({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:d.split(',')[1] } });
+    const history = chat.slice(-30).map(m => ({ role:m.role, content: m.imgs ? [...m.imgs.map(imgBlock), { type:'text', text:m.content }] : m.content }));
     while (history.length && history[0].role !== 'user') history.shift();
-    if (groceryImg) history[0].content = [
-      { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:groceryImg.split(',')[1] } },
-      { type:'text', text:'[My current grocery list photo]' },
-      { type:'text', text:history[0].content },
-    ];
+    if (groceryImg) {
+      const first = history[0].content;
+      history[0].content = [imgBlock(groceryImg), { type:'text', text:'[My current grocery list photo]' }, ...(Array.isArray(first) ? first : [{ type:'text', text:first }])];
+    }
     const reply = await callClaude({ model:CHAT_MODEL, max_tokens:16000, system:buildSystem(), messages:history, extra:{ fallbacks:'default' }, beta:'server-side-fallback-2026-07-01' });
     chat.push({ role:'assistant', content: reply || '…', logged:[] });
   } catch (err) {
@@ -2426,7 +2462,11 @@ function renderBody() {
     </div>` : `<button class="link-btn" id="bodyManual" style="margin-top:8px;">+ add manually</button>`}
     <div class="flag-row">${DAY_FLAGS.map(([k, label]) => `<button class="chip ${flags[k] ? 'active' : ''}" data-flag="${k}">${label}</button>`).join('')}</div>
     <div class="ai-status" id="bodyStatus"></div>
+    <div class="ready-label" style="margin-top:16px">Progress photos</div>
+    <div class="pp-row" id="ppRow"></div>
+    <div id="ppToastBox"></div>
   </div>`;
+  renderProgressRow();
 }
 
 $('bodyCard').addEventListener('click', async e => {
@@ -2454,6 +2494,100 @@ ${lines}
 - 7-day avg ${tr.avg7 != null ? (tr.avg7 * LB).toFixed(1) : '—'} lb (${tr.n7} weigh-ins)${tr.change != null ? `, ${(tr.change * LB) > 0 ? '+' : ''}${(tr.change * LB).toFixed(1)} lb vs the prior 7-day avg` : ''}
 - Today's flags: ${flagsFor(todayKey) || 'none'}${yflags ? ` · yesterday: ${yflags}` : ''}`;
 }
+
+/* ═══════════════════════════════ PROGRESS PHOTOS */
+// Stored only on this phone (IndexedDB). One photo per day: { date, ts, img, thumb, kg, bf }.
+const ppDB = (() => {
+  let dbp;
+  const open = () => dbp ||= new Promise((res, rej) => {
+    const r = indexedDB.open('mt_progress', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('photos', { keyPath:'date' });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => { const t = db.transaction('photos', mode); const q = fn(t.objectStore('photos')); t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); };
+  return {
+    all: () => tx('readonly', s => s.getAll()).then(a => (a || []).sort((x, y) => x.date.localeCompare(y.date))).catch(() => []),
+    put: v => tx('readwrite', s => s.put(v)),
+    del: date => tx('readwrite', s => s.delete(date)),
+  };
+})();
+let ppList = [];          // cached records, oldest first
+let ppLastSaved = null;   // record just taken, for the one-tap "Save to Photos"
+const PP_DUE_DAYS = 7;
+
+function resizeTo(dataUrl, maxSide, q) {
+  return new Promise(res => { const im = new Image(); im.onload = () => { const k = Math.min(1, maxSide / Math.max(im.width, im.height)); const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', q)); }; im.src = dataUrl; });
+}
+const dataUrlToFile = (d, name) => { const [h, b] = d.split(','); const bin = atob(b); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], name, { type: h.match(/:(.*?);/)[1] }); };
+async function shareToPhotos(recs) {
+  const files = recs.map(r => dataUrlToFile(r.img, `progress-${r.date}.jpg`));
+  if (navigator.canShare && navigator.canShare({ files })) { try { await navigator.share({ files }); return true; } catch (e) { if (e.name === 'AbortError') return true; } }
+  // Fallback (desktop): download
+  for (const f of files) { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 30000); }
+  return true;
+}
+
+async function loadProgress() { ppList = await ppDB.all(); if (!$('bodyCard').innerHTML) return; renderProgressRow(); }
+function renderProgressRow() {
+  if (!$('ppRow')) return;
+  const last = ppList[ppList.length - 1];
+  const due = !last || (Date.now() - last.ts) / 86400000 >= PP_DUE_DAYS;
+  const cam = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+  $('ppRow').innerHTML = `<button class="pp-add" id="ppAdd">${due ? '<span class="pp-due"></span>' : ''}${cam}${last?.date === todayKey ? 'Retake' : 'Add'}</button>` +
+    [...ppList].reverse().slice(0, 12).map(r => `<button class="pp-thumb" data-pp="${r.date}"><img src="${r.thumb}" alt="Progress photo ${r.date}"><span>${new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' })}</span></button>`).join('');
+  $('ppToastBox').innerHTML = ppLastSaved ? `<div class="pp-toast"><span>Photo saved in the app.</span><button class="btn-secondary" id="ppToastSave">Save to Photos</button></div>` : '';
+}
+
+$('bodyCard').addEventListener('click', async e => {
+  if (e.target.closest('#ppAdd')) return $('ppFile').click();
+  if (e.target.closest('#ppToastSave')) { await shareToPhotos([ppLastSaved]); ppLastSaved = null; renderProgressRow(); return; }
+  const t = e.target.closest('[data-pp]'); if (t) openCompare(t.dataset.pp);
+});
+$('ppFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const big = await loadPhoto(f);                 // ≤1568px JPEG
+    const img = await resizeTo(big, 1350, 0.85), thumb = await resizeTo(big, 240, 0.7);
+    const w = dailyWeights().find(x => x.dk === todayKey) || dailyWeights().slice(-1)[0];
+    const rec = { date: todayKey, ts: Date.now(), img, thumb, kg: w?.kg ?? null, bf: w?.bf ?? null };
+    await ppDB.put(rec);
+    ppList = ppList.filter(r => r.date !== todayKey).concat(rec).sort((a, b) => a.date.localeCompare(b.date));
+    ppLastSaved = rec; renderProgressRow();
+  } catch (err) { $('bodyStatus').textContent = "Couldn't save that photo."; $('bodyStatus').className = 'ai-status err'; }
+};
+
+// Side-by-side compare: left defaults to the oldest photo, right to the tapped one
+let ppL = null, ppR = null;
+function openCompare(date) {
+  ppR = date; ppL = ppList[0]?.date === date && ppList.length > 1 ? ppList[ppList.length - 1].date : ppList[0]?.date;
+  if (ppList.length > 1 && ppL === ppR) ppL = ppList[0].date;
+  renderCompare(); $('ppOverlay').classList.add('open'); document.body.style.overflow = 'hidden';
+}
+function renderCompare() {
+  const side = (d, k) => { const r = ppList.find(x => x.date === d); if (!r) return '<div class="pp-side"></div>';
+    return `<div class="pp-side"><img src="${r.img}" alt="Progress photo ${r.date}">
+      <select class="input-field" data-side="${k}">${ppList.map(x => `<option value="${x.date}" ${x.date === d ? 'selected' : ''}>${new Date(x.date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric', year:'2-digit' })}</option>`).join('')}</select>
+      <div class="pp-stats">${r.kg ? `${(r.kg * LB).toFixed(1)} lb` : '—'}${r.bf ? ` · ${r.bf.toFixed(1)}% BF` : ''}</div></div>`; };
+  $('ppCmp').innerHTML = ppList.length > 1 ? side(ppL, 'L') + side(ppR, 'R') : side(ppR, 'R').replace('pp-side', 'pp-side" style="grid-column:1/-1');
+  $('ppAsk').style.display = ppList.length > 1 ? '' : 'none';
+  $('ppStatus').textContent = '';
+}
+$('ppCmp').addEventListener('change', e => { const s = e.target.closest('[data-side]'); if (!s) return; s.dataset.side === 'L' ? (ppL = s.value) : (ppR = s.value); renderCompare(); });
+$('ppClose').onclick = () => { $('ppOverlay').classList.remove('open'); document.body.style.overflow = ''; };
+$('ppSave').onclick = () => shareToPhotos([ppList.find(r => r.date === ppR)].filter(Boolean));
+$('ppSaveAll').onclick = () => shareToPhotos(ppList);
+$('ppDel').onclick = async () => {
+  await ppDB.del(ppR); ppList = ppList.filter(r => r.date !== ppR);
+  if (!ppList.length) { $('ppClose').onclick(); renderProgressRow(); return; }
+  ppR = ppList[ppList.length - 1].date; if (ppL === ppR || !ppList.some(r => r.date === ppL)) ppL = ppList[0].date;
+  renderCompare(); renderProgressRow();
+};
+$('ppAsk').onclick = () => {
+  const a = ppList.find(r => r.date === ppL), b = ppList.find(r => r.date === ppR); if (!a || !b) return;
+  $('ppClose').onclick(); showTab('coach');
+  const f = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  sendChat(`Compare my progress photos from ${f(a.date)} (${a.kg ? (a.kg * LB).toFixed(1) + ' lb' : 'no weight'}${a.bf ? ', ' + a.bf.toFixed(1) + '% BF' : ''}) and ${f(b.date)} (${b.kg ? (b.kg * LB).toFixed(1) + ' lb' : 'no weight'}${b.bf ? ', ' + b.bf.toFixed(1) + '% BF' : ''}). What's changed, and does it look like fat loss, muscle gain, or water?`, [a.img, b.img]);
+};
 
 /* ═══════════════════════════════ LABS */
 // Slow-changing baseline. Flags use each lab's own reference range — never ranges we invent.
@@ -2726,7 +2860,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.8';
+const BUILD = '2026-10-18.9';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
@@ -2748,6 +2882,7 @@ if (location.hash.startsWith('#whoop=')) {
 /* ═══════════════════════════════ INIT */
 renderToday();
 photoDB.get().then(p => { groceryImg = typeof p === 'string' ? p : null; renderGrocery(); });
+loadProgress();
 if (!store.get('mt_setup_done', false)) toggleSetup(true);
 </script>
 </body>
