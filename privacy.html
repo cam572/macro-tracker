@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Macro Coach Privacy</title>
+<style>
+:root{--bg:#080808;--s1:#0f0f0f;--text:#f0f0f0;--muted:#8a8a8a;--lime:#c8f135;--border:#222}
+body{background:var(--bg);color:var(--text);font:15px/1.65 'Space Grotesk',system-ui,sans-serif;margin:0;padding:32px 16px}
+main{max-width:640px;margin:0 auto}h1{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.04em;font-size:40px;margin:0 0 4px}
+h1 em{font-style:normal;color:var(--lime)}h2{font-size:15px;margin:28px 0 6px;color:var(--lime);text-transform:uppercase;letter-spacing:.08em}
+p,li{color:#d6d6d6}.muted{color:var(--muted);font-size:13px}a{color:var(--lime)}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+</head><body><main>
+<h1>MACRO <em>COACH</em> PRIVACY</h1>
+<p class="muted">Last updated October 17, 2026</p>
+<p>Macro Coach is a personal, single-user nutrition and training tracker. It is not a commercial service and has no other users.</p>
+<h2>What it stores</h2>
+<ul>
+<li>Food logs, targets, notes and coach chats are stored only in the browser on the owner's own device.</li>
+<li>When the owner connects WHOOP, recovery, sleep, strain, workout and body-measurement data is fetched through the owner's private server (a Cloudflare Worker). WHOOP sign-in tokens are stored there encrypted. Health data is passed to the owner's device and is not kept on the server.</li>
+</ul>
+<h2>How it's used</h2>
+<p>Data is used only to show the owner their own stats and to generate coaching suggestions. To produce those suggestions, relevant data is sent to Anthropic's Claude API using the owner's own API key.</p>
+<h2>Sharing</h2>
+<p>Data is never sold, rented or shared with anyone else, and is not used for advertising.</p>
+<h2>Disconnecting</h2>
+<p>WHOOP can be disconnected at any time in the app (Setup → Connections), which revokes access and deletes the stored tokens. You can also revoke access from your WHOOP account settings.</p>
+<h2>Contact</h2>
+<p><a href="mailto:camcredeur@gmail.com">camcredeur@gmail.com</a></p>
+</main></body></html>
