@@ -906,8 +906,9 @@ function renderTodaySummary(sch, t, T, fasting, eatenSlots) {
     }).join('')}</div>`;
 
   // Tiles: recovery, glucose, weight, sleep
-  const w = whoopConnected && whoopSummary(), rec = w?.today?.recovery, sl = w?.today?.sleep;
-  const recNote = rec ? (rec.score >= 67 ? 'High · good day to push' : rec.score >= 34 ? 'Moderate · train smart' : 'Low · prioritize recovery') : '';
+  const w = whoopConnected && whoopSummary(), rec = w?.current?.recovery, sl = w?.current?.sleep;
+  const lastDay = w?.stale ? new Date(w.current.date + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short' }) : '';
+  const recNote = rec ? (w.stale ? `Last scored ${lastDay} · updates when you wake` : rec.score >= 67 ? 'High · good day to push' : rec.score >= 34 ? 'Moderate · train smart' : 'Low · prioritize recovery') : '';
   const gl = gluData?.status?.configured ? gluData.status.latest : null;
   const tr = weightTrend(), lastW = tr.dw[tr.dw.length - 1];
   const tile = (key, label, color, val, unit, note, extra = '') => `<button class="tile glass" data-tile="${key}">
@@ -923,10 +924,10 @@ function renderTodaySummary(sch, t, T, fasting, eatenSlots) {
     }
   }
   $('todayTiles').innerHTML =
-    tile('recovery', 'Recovery', '#7DB851', rec?.score ?? null, '%', rec ? recNote : 'Connect Whoop in Settings') +
+    tile('recovery', 'Recovery', '#7DB851', rec?.score ?? null, '%', rec ? recNote : whoopConnected ? 'Waiting for your next recovery' : 'Connect Whoop in Settings') +
     tile('glucose', 'Glucose', '#E6EAE2', gl?.v ?? null, ' mg/dL', gl ? `${TREND[gl.trend] || ''} ${Math.round((Date.now() - gl.t * 1000) / 60000)} min ago` : 'Connect Libre 3 in Settings', spark) +
     tile('weight', 'Weight', '#9DCB72', lastW ? (lastW.kg * LB).toFixed(1) : null, ' lb', tr.change != null ? `${tr.change > 0 ? '↑' : '↓'} ${Math.abs(tr.change * LB).toFixed(1)} vs last week` : tr.avg7 != null ? `7-day avg ${(tr.avg7 * LB).toFixed(1)}` : 'Weigh in to start a trend') +
-    tile('sleep', 'Sleep', '#C3CFBA', sl?.hours ?? null, ' h', sl ? `of ${sl.needHours ?? '—'}h needed` : 'Connect Whoop in Settings');
+    tile('sleep', 'Sleep', '#C3CFBA', sl?.hours ?? null, ' h', sl ? `of ${sl.needHours ?? '—'}h needed${w.stale ? ` · ${lastDay}` : ''}` : whoopConnected ? 'Waiting for tonight\u2019s sleep' : 'Connect Whoop in Settings');
 
   // Next up
   const nextSlot = sch.slots.findIndex((_, i) => !eatenSlots.has(i));
@@ -1808,18 +1809,24 @@ function whoopSummary() {
   const days = whoopData?.days || [];
   if (!days.length) return null;
   const today = days.find(d => d.date === todayKey) || null;
-  const prior = days.filter(d => d.date < todayKey).slice(-14);
+  // Whoop scores a day's recovery when you wake up. Until then (e.g. just after midnight),
+  // show the most recent scored day instead of acting like Whoop isn't connected.
+  const twoDaysAgo = dateKey(new Date(Date.now() - 2 * 86400000));
+  const current = today?.recovery ? today : [...days].reverse().find(d => d.recovery && d.date >= twoDaysAgo) || today;
+  const stale = !!current && current.date !== todayKey;
+  const refDate = current?.date || todayKey;
+  const prior = days.filter(d => d.date < refDate).slice(-14);
   const avg = f => { const v = prior.map(f).filter(x => x != null); return v.length >= 3 ? v.reduce((a, b) => a + b, 0) / v.length : null; };
   return {
-    today, yesterday: prior[prior.length - 1] || null, prior,
+    today, current, stale, yesterday: prior[prior.length - 1] || null, prior,
     base: { hrv: avg(d => d.recovery?.hrv), rhr: avg(d => d.recovery?.rhr), sleep: avg(d => d.sleep?.hours), strain: avg(d => d.strain?.score), recovery: avg(d => d.recovery?.score) },
   };
 }
 
 function renderReadiness() {
   const w = whoopConnected && whoopSummary();
-  if (!w || !w.today) { $('readiness').innerHTML = ''; return; }
-  const { today, yesterday, base } = w, rec = today.recovery, sl = today.sleep;
+  if (!w || !w.current) { $('readiness').innerHTML = whoopConnected ? '<div class="glass" style="padding:16px;color:rgba(255,255,255,.6);font-size:13px;">Whoop is connected — waiting for your next scored recovery.</div>' : ''; return; }
+  const { current: today, yesterday, base } = w, rec = today.recovery, sl = today.sleep;
   // Whoop's own recovery bands (green 67+, yellow 34-66, red <34)
   const recColor = rec?.score == null ? 'var(--muted)' : rec.score >= 67 ? 'var(--lime)' : rec.score >= 34 ? '#f5c542' : 'var(--red)';
   const delta = (v, b, unit, higherIsGood) => {
@@ -1832,7 +1839,7 @@ function renderReadiness() {
   $('readiness').innerHTML = `<div class="ready-card">
     <div class="ready-top">
       <div class="ready-score" style="color:${recColor}">${rec?.score != null ? rec.score + '%' : '—'}</div>
-      <div><div class="ready-label">Whoop recovery${rec?.calibrating ? ' · calibrating' : ''}</div>
+      <div><div class="ready-label">Whoop recovery${rec?.calibrating ? ' · calibrating' : ''}${w.stale ? ` · last scored ${new Date(today.date + 'T12:00:00').toLocaleDateString(undefined, { weekday:'short' })}` : ''}</div>
         <div class="ready-sub">${rec ? 'Tap Coach → “Should I lift today?”' : 'Recovery not scored yet today'}</div></div>
     </div>
     <div class="ready-grid">
@@ -1851,10 +1858,10 @@ function whoopContext() {
   const w = whoopSummary();
   if (!w) return 'WHOOP: connected, but no data synced yet — coach from food data alone.';
   const f = (v, d = 0) => v == null ? '—' : (+v).toFixed(d);
-  const t = w.today, rec = t?.recovery, sl = t?.sleep;
+  const t = w.today, cur = w.current, rec = cur?.recovery, sl = cur?.sleep;
   const recent = w.prior.slice(-7).map(d => `  ${d.date}: recovery ${d.recovery?.score ?? '—'}% · HRV ${f(d.recovery?.hrv)} · RHR ${d.recovery?.rhr ?? '—'} · sleep ${d.sleep?.hours ?? '—'}h · strain ${d.strain?.score ?? '—'}${d.workouts.length ? ' · ' + d.workouts.map(x => `${x.sport} ${x.minutes}m strain ${x.strain ?? '—'}`).join(', ') : ''}`).join('\n');
   return `WHOOP (synced ${whoopData.syncedAt ? new Date(whoopData.syncedAt).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' }) : '—'}):
-- Today: ${rec ? `recovery ${rec.score}%${rec.calibrating ? ' (Whoop still calibrating — low confidence)' : ''} · HRV ${f(rec.hrv)} ms (14-day avg ${f(w.base.hrv)}) · RHR ${rec.rhr} (avg ${f(w.base.rhr)})` : 'recovery not scored yet'}
+- ${w.stale ? `Most recent scored day (${cur.date}; today not scored yet)` : 'Today'}: ${rec ? `recovery ${rec.score}%${rec.calibrating ? ' (Whoop still calibrating — low confidence)' : ''} · HRV ${f(rec.hrv)} ms (14-day avg ${f(w.base.hrv)}) · RHR ${rec.rhr} (avg ${f(w.base.rhr)})` : 'recovery not scored yet'}
 - Last night: ${sl ? `${sl.hours}h asleep of ${sl.needHours ?? '—'}h needed · performance ${sl.performance ?? '—'}% · deep ${sl.deepHours}h · REM ${sl.remHours}h · bedtime ${new Date(sl.bedtime).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })}` : 'no scored sleep'}
 - Today so far: strain ${t?.strain?.score ?? '—'}${t?.workouts?.length ? ' · workouts: ' + t.workouts.map(x => `${x.sport} ${x.minutes}m (${new Date(x.start).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' })})`).join(', ') : ''}
 - Previous 7 days:
@@ -2235,7 +2242,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.1';
+const BUILD = '2026-10-18.2';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
