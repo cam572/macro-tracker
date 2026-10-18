@@ -1702,6 +1702,7 @@ ${recent || '  (none)'}`;
 // Fed by the scale via Apple Health → iPhone Shortcut → coach server, plus manual entries.
 let bodyData = store.get('mt_body', null);          // { syncedAt, entries:[{t, kg, bf, leanKg, source}] }
 let bodyLocal = store.get('mt_body_local', []);     // manual entries not yet on the server
+let bodyManualOpen = false;                          // manual entry is a backup — hidden until asked for
 const BODY_STALE_MS = 10 * 60 * 1000;
 const LB = 2.20462;
 const DAY_FLAGS = [['sodium','High sodium'], ['sauna','Sauna / sweat'], ['lift','Lifted'], ['alcohol','Alcohol'], ['travel','Travel / poor sleep']];
@@ -1764,11 +1765,11 @@ function renderBody() {
         <div class="body-sub">${tr.latestBf && tr.firstBf30 && tr.firstBf30 !== tr.latestBf ? `${(tr.latestBf.bf - tr.firstBf30.bf) > 0 ? '+' : ''}${(tr.latestBf.bf - tr.firstBf30.bf).toFixed(1)} in 30d` : '&nbsp;'}</div></div>
     </div>
     ${chart}
-    <div class="body-entry">
+    ${bodyManualOpen ? `<div class="body-entry">
       <input class="input-field" id="bwIn" type="number" inputmode="decimal" placeholder="Weight lb">
       <input class="input-field" id="bfIn" type="number" inputmode="decimal" placeholder="Body fat %">
       <button class="btn-secondary" id="bodyAdd">Log</button>
-    </div>
+    </div>` : `<button class="link-btn" id="bodyManual" style="margin-top:8px;">+ add manually</button>`}
     <div class="flag-row">${DAY_FLAGS.map(([k, label]) => `<button class="chip ${flags[k] ? 'active' : ''}" data-flag="${k}">${label}</button>`).join('')}</div>
     <div class="ai-status" id="bodyStatus"></div>
   </div>`;
@@ -1777,11 +1778,13 @@ function renderBody() {
 $('bodyCard').addEventListener('click', async e => {
   const f = e.target.closest('[data-flag]');
   if (f) { day.flags = { ...(day.flags || {}), [f.dataset.flag]: !(day.flags || {})[f.dataset.flag] }; saveDay(todayKey, day); renderBody(); return; }
+  if (e.target.id === 'bodyManual') { bodyManualOpen = true; renderBody(); $('bwIn').focus(); return; }
   if (e.target.id !== 'bodyAdd') return;
   const w = parseFloat($('bwIn').value), bf = parseFloat($('bfIn').value);
   if (isNaN(w) && isNaN(bf)) { $('bodyStatus').textContent = 'Enter a weight and/or body fat.'; $('bodyStatus').className = 'ai-status err'; return; }
   const entry = { t: Date.now(), kg: isNaN(w) ? null : Math.round(w / LB * 100) / 100, bf: isNaN(bf) ? null : bf, source:'manual' };
   bodyLocal.push(entry); store.set('mt_body_local', bodyLocal);
+  bodyManualOpen = false;
   renderBody(); syncBody(true).catch(() => {});
 });
 
@@ -2069,7 +2072,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-17.5';
+const BUILD = '2026-10-17.6';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
