@@ -21,3 +21,7 @@ res = await post({ weight: '18 lb' }); assert.equal(res.status, 400);
 res = await worker.fetch(new Request('https://w.dev/body', { method: 'POST', body: '{}' }), env); assert.equal(res.status, 401);
 assert.ok(![...kv.values()].some(v => String(v).includes('82.74')), 'sealed at rest');
 console.log('all body checks passed');
+{ const { toKg, toPct } = body._test;
+  assert.equal(Math.round(toKg(['182.4 lb']) * 10) / 10, 82.7);
+  assert.equal(toPct([{ value: 0.2 }]), 20);
+  console.log('wrapped shapes ok'); }
