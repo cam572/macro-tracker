@@ -296,6 +296,25 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .glu-badge { font-family:var(--FM); font-size:10px; color:var(--blue); margin-left:8px; white-space:nowrap; }
 .glu-badge.pending { color:var(--muted); }
 
+/* Labs */
+.lab-row { display:grid; grid-template-columns:1fr auto; gap:4px 10px; padding:9px 0; border-bottom:1px solid var(--border); align-items:center; }
+.lab-row:last-child { border-bottom:none; }
+.lab-name { font-size:13px; font-weight:600; }
+.lab-ref { font-family:var(--FM); font-size:10px; color:var(--muted); }
+.lab-val { font-family:var(--FD); font-size:22px; text-align:right; line-height:1; }
+.lab-val small { font-family:var(--FM); font-size:10px; color:var(--muted); margin-left:3px; }
+.lab-trend { font-family:var(--FM); font-size:10px; color:var(--muted); text-align:right; }
+.lab-flag { color:var(--orange); }
+.lab-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.lab-form { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.lab-form .full { grid-column:1 / -1; }
+.lab-form .input-field { padding:9px 10px; font-size:13px; }
+.lab-review-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.lab-review-row input { accent-color:var(--lime); width:16px; height:16px; }
+.lab-review-row .lab-ref { margin-left:auto; text-align:right; }
+.lab-del { background:none; border:none; color:var(--muted); font-size:11px; cursor:pointer; padding:0; text-align:right; }
+.lab-del:hover { color:var(--red); }
+
 .rp-periods { display:flex; gap:6px; margin-bottom:14px; }
 .rp-score { display:flex; align-items:baseline; gap:10px; margin-bottom:14px; }
 .rp-score-num { font-family:var(--FD); font-size:56px; color:var(--lime); line-height:1; }
@@ -451,6 +470,20 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
         <div class="conn-btns" id="libreBtns"></div>
       </div>
       <div class="settings-status" id="connStatus"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Lab Results</div>
+      <div class="settings-section-sub">Your baseline layer. Upload a lab report (PDF or photo) and Claude reads the markers, or add them by hand. Each result keeps its date and the lab's own reference range so trends show across draws. Stored only on this phone.</div>
+      <div id="labList"></div>
+      <div class="lab-actions">
+        <button class="ai-btn" id="labUpload" style="padding:12px;font-size:12px;">Upload report</button>
+        <button class="btn-secondary" id="labAddBtn">Add by hand</button>
+      </div>
+      <input type="file" id="labFile" accept="application/pdf,image/*" hidden>
+      <div id="labForm"></div>
+      <div id="labReview"></div>
+      <div class="settings-status" id="labStatus"></div>
     </div>
 
     <button class="btn-primary" id="saveSetup">Save setup</button>
@@ -637,6 +670,8 @@ function renderSetup() {
   setGroceryStatus('');
   renderConnections();
   setConnStatus('');
+  renderLabs();
+  setLabStatus('');
 }
 
 function renderSchedule() {
@@ -1000,9 +1035,12 @@ ${whoopContext()}
 
 ${glucoseContext()}
 
+${labContext()}
+
 COACHING
 - Voice: functional-medicine coach — explain the likely root cause behind what the data shows and give specific next steps, personalized to this user's own patterns. Lifestyle and nutrition guidance only: no diagnoses, no medication advice; if something looks medically concerning, suggest talking to their clinician.
 - Training & recovery (when Whoop data is present): judge readiness against the user's OWN baselines (HRV and RHR vs their 14-day average, sleep vs their need, recent strain and how many hard days in a row) rather than fixed cut-offs. Recommend hard / moderate / light-or-recovery with a concrete session idea and a reason. If data is missing or Whoop is calibrating, say so and lean conservative. Suggest recovery days when the signals stack up, not on a fixed schedule.
+- Labs as a baseline: use them to calibrate how strict to be. Elevated fasting insulin, HbA1c or fasting glucose (per the lab's range) → tighter glycemic guardrails (smaller carb portions per meal, carbs earlier/around training, more protein/fiber first); clean metabolic labs → looser. Lipids, hs-CRP, vitamin D, thyroid and ferritin inform food quality, fiber, omega-3, sunlight/sleep and recovery advice. Explain the likely root cause in plain language and the lifestyle levers that move each marker, and point out trends across draws. Never diagnose or suggest medication/dose changes; for out-of-range or worsening values, suggest discussing them with their clinician.
 - Glucose (when CGM data is present): learn THIS user's responses from the meal-response list — which foods, combos, portions, times of day and pre/post-workout timing give them smaller rises and faster returns to baseline — and steer suggestions toward what works for them. Patterns like pairing carbs with protein/fat/fiber or walking after meals should be recommended because their data supports it (cite the meals), not as generic rules. With little data, be conservative and say you're still learning their patterns. If the sensor flags LOW/HIGH repeatedly, or values look concerning, suggest they talk to their clinician.
 - Meal timing (directional priors, refine to the user over time): place more of the day's carbs earlier and around training (before/after a workout), lighter carbs late; on low-recovery or short-sleep days, keep protein high and favor steadier, fiber-rich carbs.
 - Plan the rest of the day around the remaining macros AND the remaining meal count and time of day — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
@@ -1643,6 +1681,146 @@ function whoopContext() {
 ${recent || '  (none)'}`;
 }
 
+/* ═══════════════════════════════ LABS */
+// Slow-changing baseline. Flags use each lab's own reference range — never ranges we invent.
+let labs = store.get('mt_labs', []);   // [{ id, date, marker, value, unit, refLow, refHigh, refText, source }]
+let labPending = null;                 // extracted rows awaiting review
+const LAB_MARKERS = ['Fasting glucose','Fasting insulin','HbA1c','Total cholesterol','LDL cholesterol','HDL cholesterol','Triglycerides','ApoB','Lp(a)','TSH','Free T3','Free T4','Reverse T3','TPO antibodies','hs-CRP','Vitamin D (25-OH)','Ferritin','Iron','Vitamin B12','Folate','Magnesium (RBC)','Homocysteine','ALT','AST','GGT','Creatinine','eGFR','Uric acid','Testosterone (total)','Testosterone (free)','Estradiol','SHBG','Cortisol (AM)','DHEA-S','Hemoglobin','Hematocrit','WBC','Platelets','Sodium','Potassium'];
+const saveLabs = () => store.set('mt_labs', labs);
+const labKey = m => String(m || '').trim().toLowerCase();
+
+function labFlag(r) {
+  if (r.value == null || isNaN(r.value)) return '';
+  if (r.refHigh != null && r.value > r.refHigh) return 'High';
+  if (r.refLow != null && r.value < r.refLow) return 'Low';
+  return '';
+}
+const labRef = r => r.refText || (r.refLow != null && r.refHigh != null ? `${r.refLow}–${r.refHigh}` : r.refHigh != null ? `< ${r.refHigh}` : r.refLow != null ? `> ${r.refLow}` : 'no range');
+
+// Group results by marker, newest first, so we can show latest value + change since the previous draw
+function labsByMarker() {
+  const g = new Map();
+  for (const r of [...labs].sort((a, b) => b.date.localeCompare(a.date))) {
+    const k = labKey(r.marker);
+    (g.get(k) || g.set(k, []).get(k)).push(r);
+  }
+  return [...g.values()];
+}
+
+function setLabStatus(msg, cls) { $('labStatus').textContent = msg; $('labStatus').className = 'settings-status ' + (cls || ''); }
+
+function renderLabs() {
+  const groups = labsByMarker();
+  $('labList').innerHTML = groups.length ? groups.map(rs => {
+    const r = rs[0], prev = rs[1], flag = labFlag(r);
+    const delta = prev ? r.value - prev.value : null;
+    return `<div class="lab-row">
+      <div><div class="lab-name">${esc(r.marker)}</div><div class="lab-ref">ref ${esc(labRef(r))} · ${new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })}</div></div>
+      <div><div class="lab-val ${flag ? 'lab-flag' : ''}">${r.value}<small>${esc(r.unit || '')}</small></div>
+        <div class="lab-trend">${flag ? `<span class="lab-flag">${flag}</span> · ` : ''}${prev ? `${delta > 0 ? '+' : ''}${Math.round(delta * 100) / 100} vs ${new Date(prev.date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', year:'2-digit' })}` : '1 draw'}</div>
+        <button class="lab-del" data-labdel="${r.id}">remove</button></div>
+    </div>`;
+  }).join('') : '<div class="rp-empty">No lab results yet.</div>';
+}
+
+$('labList').onclick = e => {
+  const b = e.target.closest('[data-labdel]'); if (!b) return;
+  labs = labs.filter(r => r.id !== b.dataset.labdel); saveLabs(); renderLabs();
+};
+
+// Manual entry
+$('labAddBtn').onclick = () => {
+  $('labReview').innerHTML = '';
+  $('labForm').innerHTML = $('labForm').innerHTML ? '' : `<div class="lab-form">
+    <input class="input-field full" id="lfMarker" list="labMarkerList" placeholder="Marker (e.g. Fasting insulin)">
+    <datalist id="labMarkerList">${LAB_MARKERS.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+    <input class="input-field" id="lfValue" type="number" inputmode="decimal" placeholder="Value">
+    <input class="input-field" id="lfUnit" placeholder="Unit (e.g. µIU/mL)">
+    <input class="input-field" id="lfLow" type="number" inputmode="decimal" placeholder="Ref low (from report)">
+    <input class="input-field" id="lfHigh" type="number" inputmode="decimal" placeholder="Ref high (from report)">
+    <input class="input-field full" id="lfDate" type="date" value="${todayKey}" style="color-scheme:dark;">
+    <button class="btn-primary full" id="lfSave" style="padding:11px;">Save result</button>
+  </div>`;
+};
+$('labForm').addEventListener('click', e => {
+  if (e.target.id !== 'lfSave') return;
+  const marker = $('lfMarker').value.trim(), value = parseFloat($('lfValue').value);
+  if (!marker || isNaN(value)) return setLabStatus('Enter a marker and a value.', 'err');
+  const num = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
+  labs.push({ id: crypto.randomUUID(), date: $('lfDate').value || todayKey, marker, value, unit: $('lfUnit').value.trim(), refLow: num('lfLow'), refHigh: num('lfHigh'), refText: '', source: 'manual' });
+  saveLabs(); $('labForm').innerHTML = ''; renderLabs(); setLabStatus(`Saved ${marker}.`, 'ok');
+});
+
+// Upload → Claude reads every marker → you review → save
+$('labUpload').onclick = () => $('labFile').click();
+$('labFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  $('labForm').innerHTML = ''; $('labReview').innerHTML = '';
+  setLabStatus('Reading your lab report…', '');
+  $('labUpload').disabled = true;
+  try {
+    let block;
+    if (f.type === 'application/pdf') {
+      if (f.size > 20e6) throw new Error('That PDF is too large — try a photo of each page instead.');
+      const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(f); });
+      block = { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } };
+    } else {
+      const img = await loadPhoto(f);
+      block = { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:img.split(',')[1] } };
+    }
+    const txt = await callClaude({
+      model: CHAT_MODEL, max_tokens: 8000,
+      system: `You extract lab results from a blood-work report. Read EVERY test result on the report. For each, return the marker name (use these standard names when they match: ${LAB_MARKERS.join(', ')}; otherwise the report's name), the numeric value, the unit exactly as printed, and the reference range exactly as printed on the report (refLow/refHigh as numbers when it's a numeric range; refText for anything else like "<5.7" or "negative"). Use the specimen COLLECTION date (YYYY-MM-DD). Never invent a reference range — leave it null if the report doesn't print one. Skip non-numeric results unless they have a clear numeric value.
+Finish with ONLY this JSON (no markdown):
+{"collectedOn":"YYYY-MM-DD or empty","results":[{"marker":"","value":0,"unit":"","refLow":null,"refHigh":null,"refText":""}]}`,
+      messages: [{ role:'user', content: [block, { type:'text', text:'Extract all results from this lab report.' }] }],
+      extra: { fallbacks:'default', output_config:{ effort:'medium' } }, beta: 'server-side-fallback-2026-07-01',
+    });
+    const end = txt.lastIndexOf('}'); let j = null;
+    for (let i = txt.indexOf('{'); i >= 0 && i < end && !j; i = txt.indexOf('{', i + 1)) { try { const o = JSON.parse(txt.slice(i, end + 1)); if (Array.isArray(o.results)) j = o; } catch {} }
+    if (!j || !j.results.length) throw new Error("Couldn't find any results on that report.");
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(j.collectedOn || '') ? j.collectedOn : todayKey;
+    labPending = j.results.filter(r => r.marker && isFinite(parseFloat(r.value))).map(r => ({
+      id: crypto.randomUUID(), date, marker: String(r.marker).trim(), value: parseFloat(r.value), unit: r.unit || '',
+      refLow: isFinite(parseFloat(r.refLow)) ? parseFloat(r.refLow) : null, refHigh: isFinite(parseFloat(r.refHigh)) ? parseFloat(r.refHigh) : null,
+      refText: r.refText || '', source: 'upload',
+    }));
+    renderLabReview(date);
+    setLabStatus(`Found ${labPending.length} results — check them, then save.`, 'ok');
+  } catch (err) { setLabStatus(err.message, 'err'); }
+  $('labUpload').disabled = false;
+};
+
+function renderLabReview(date) {
+  if (!labPending) { $('labReview').innerHTML = ''; return; }
+  $('labReview').innerHTML = `<div style="margin-top:12px;">
+    <div class="settings-field"><label>Collection date</label><input class="input-field" type="date" id="lrDate" value="${date}" style="color-scheme:dark;"></div>
+    ${labPending.map((r, i) => `<label class="lab-review-row"><input type="checkbox" data-lr="${i}" checked>
+      <span><strong>${esc(r.marker)}</strong> ${r.value} ${esc(r.unit)}</span>
+      <span class="lab-ref">ref ${esc(labRef(r))}${labFlag(r) ? ` · <span class="lab-flag">${labFlag(r)}</span>` : ''}</span></label>`).join('')}
+    <div class="lab-actions"><button class="btn-primary" id="lrSave" style="padding:11px;">Save selected</button><button class="btn-secondary" id="lrCancel">Discard</button></div>
+  </div>`;
+}
+$('labReview').addEventListener('click', e => {
+  if (e.target.id === 'lrCancel') { labPending = null; renderLabReview(); setLabStatus(''); }
+  if (e.target.id !== 'lrSave') return;
+  const date = $('lrDate').value || todayKey;
+  const keep = [...document.querySelectorAll('[data-lr]')].filter(c => c.checked).map(c => ({ ...labPending[+c.dataset.lr], date }));
+  // Re-uploading the same report replaces those markers for that date instead of duplicating
+  const dup = new Set(keep.map(r => labKey(r.marker) + '|' + r.date));
+  labs = labs.filter(r => !dup.has(labKey(r.marker) + '|' + r.date)).concat(keep);
+  saveLabs(); labPending = null; renderLabReview(); renderLabs();
+  setLabStatus(`Saved ${keep.length} results.`, 'ok');
+});
+
+// Lab context for the coach: latest value per marker, the lab's own range and flag, and the trend
+function labContext() {
+  const groups = labsByMarker();
+  if (!groups.length) return 'LABS: none on file yet — coach without lab calibration and keep glycemic guidance moderate.';
+  return `LABS (latest per marker; flags are vs the lab's own printed reference range):
+${groups.map(rs => { const r = rs[0], f = labFlag(r); return `  ${r.marker}: ${r.value} ${r.unit} (ref ${labRef(r)})${f ? ' — ' + f.toUpperCase() : ''} on ${r.date}${rs.slice(1, 3).map(p => `; earlier ${p.value} on ${p.date}`).join('')}`; }).join('\n')}`;
+}
+
 /* ═══════════════════════════════ GLUCOSE (Libre 3) */
 // Readings come from the coach server, which collects LibreLinkUp every 15 min. Cached on-device.
 let gluData = store.get('mt_glu', null);    // { syncedAt, readings:[[sec, mgdl], ...], status }
@@ -1774,7 +1952,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-17.3';
+const BUILD = '2026-10-17.4';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
