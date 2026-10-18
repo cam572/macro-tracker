@@ -536,7 +536,11 @@ body { background:var(--bg); overflow-x:hidden; }
 .wo-row { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13px; }
 .wo-row:last-child { border-bottom:none; }
 .wo-row span:last-child { font-family:var(--FM); font-size:11px; color:rgba(255,255,255,.55); white-space:nowrap; }
-.lift-form { padding:16px; }
+.lift-form { padding:16px; margin-top:10px; }
+.mini-link { background:none; border:none; padding:0; color:rgba(255,255,255,.55); font-family:var(--FB); font-size:12px; cursor:pointer; text-decoration:underline; text-underline-offset:3px; text-decoration-color:rgba(255,255,255,.25); }
+.mini-link:hover { color:var(--lime); }
+.ls-chart { display:flex; align-items:flex-end; gap:5px; height:56px; margin:6px 0 2px; }
+.ls-chart i { flex:1; display:block; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg, var(--acc1), var(--acc3)); min-height:3px; }
 .lf-ex { background:rgba(255,255,255,.035); border:1px solid var(--border); border-radius:16px; padding:12px; margin-top:10px; }
 .lf-ex-head { display:flex; gap:8px; align-items:center; }
 .lf-ex-head .input-field { flex:1; font-weight:500; }
@@ -687,10 +691,10 @@ body { background:var(--bg); overflow-x:hidden; }
     <div class="call-card glass" id="trainCall"></div>
     <div class="section-label">Strain</div>
     <div class="strain-card glass" id="trainStrain"></div>
-    <div class="section-label">Log a workout</div>
-    <div class="lift-form glass" id="liftForm"></div>
-    <div class="section-label">Strength trends</div>
+    <div class="section-label">Lifting</div>
     <div class="card" id="liftTrends"></div>
+    <div class="lift-form glass hidden" id="liftForm"></div>
+    <input type="file" id="liftShot" accept="image/*" multiple hidden>
     <div class="section-label">Activity history · from Whoop</div>
     <div class="card" id="liftHistory"></div>
   </section>
@@ -1046,14 +1050,11 @@ function newDraft(from) {
   };
 }
 function renderLiftForm() {
-  if (!liftDraft) {
-    const names = [...new Set([...lifts].sort((a, b) => b.ts - a.ts).map(w => w.name).filter(Boolean))].slice(0, 4);
-    $('liftForm').innerHTML = `<button class="btn-primary" data-lf="start">Start a workout</button>
-      ${names.length ? `<div class="repeat-row">${names.map(n => `<button class="chip" data-lf="repeat" data-name="${esc(n)}">Repeat ${esc(n)}</button>`).join('')}</div>` : '<div class="ready-sub" style="margin-top:10px">Log exercises as sets × reps × weight. Your strength trends build from here.</div>'}`;
-    return;
-  }
+  // Lifts are logged in Whoop; this form only shows to review a screenshot import or edit one
+  $('liftForm').classList.toggle('hidden', !liftDraft);
+  if (!liftDraft) { $('liftForm').innerHTML = ''; return; }
   const d = liftDraft;
-  $('liftForm').innerHTML = `
+  $('liftForm').innerHTML = `${d.imported ? '<div class="ready-label" style="margin-bottom:8px">Check the import, then save</div>' : ''}
     <div style="display:grid;grid-template-columns:1fr 130px;gap:8px">
       <input class="input-field" data-f="name" placeholder="Session (e.g. Push, Legs)" value="${esc(d.name)}">
       <input class="input-field" type="date" data-f="date" value="${d.date}" style="color-scheme:dark;font-family:var(--FM);font-size:12px">
@@ -1113,21 +1114,22 @@ function liftingOverview() {
   const now = Date.now(), last30 = wo.filter(w => now - Date.parse(w.start) < 30 * 86400000);
   const avg = f => last30.length ? last30.reduce((a, w) => a + (f(w) || 0), 0) / last30.length : 0;
   const lastS = wo[0], daysAgo = Math.floor((now - Date.parse(lastS.start)) / 86400000);
-  const needSets = wo.filter(w => now - Date.parse(w.start) < 21 * 86400000 && !lifts.some(l => l.whoopId === w.id)).slice(0, 4);
+  const recent = wo.slice(0, 12).reverse(), mx = Math.max(14, ...recent.map(w => w.strain || 0));
   return `<div class="act-sum" style="margin-bottom:10px">
       <div class="act-sum-tile"><div class="k"><span class="tile-dot" style="background:#7DB851"></span>Sessions</div><div class="v">${last30.length}×</div><div class="s">last 30 days</div></div>
       <div class="act-sum-tile"><div class="k">Per week</div><div class="v">${(last30.length / 4.3).toFixed(1)}</div><div class="s">avg ${Math.round(avg(w => w.minutes))} min</div></div>
       <div class="act-sum-tile"><div class="k">Avg strain</div><div class="v">${avg(w => w.strain).toFixed(1)}</div><div class="s">last ${daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : daysAgo + 'd ago'}</div></div>
     </div>
-    ${needSets.length ? `<div class="ready-label" style="margin:4px 0 6px">Add sets to see strength trends</div>
-      <div class="repeat-row" style="margin-top:0">${needSets.map(w => `<button class="chip" data-addsets="${w.id}">${new Date(w.start).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' })} · ${w.minutes}m</button>`).join('')}</div>` : ''}`;
+    <div class="ready-label" style="margin:2px 0 0">Strain per session · last ${recent.length}</div>
+    <div class="ls-chart">${recent.map(w => `<i title="${w.date}: ${w.strain}" style="height:${((w.strain || 0) / mx) * 100}%"></i>`).join('')}</div>`;
 }
 
 function renderTrends() {
   const hist = exerciseHistory().filter(x => x.points.some(p => p.best > 0)).sort((a, b) => b.points.length - a.points.length || a.name.localeCompare(b.name));
   const overview = liftingOverview();
-  if (!hist.length) { $('liftTrends').innerHTML = overview + `<div class="rp-empty" style="margin-top:${overview ? 12 : 0}px">${overview ? 'Whoop records your lifting sessions but not the weights. Add sets to a session (or log them during your workout) and your strength trends build here.' : 'Log a few workouts and your strength trends show up here.'}</div>`; return; }
-  $('liftTrends').innerHTML = overview + (overview ? '<div class="ready-label" style="margin:14px 0 2px">Strength by exercise</div>' : '') + hist.slice(0, 12).map(x => {
+  const importLink = `<div style="margin-top:12px"><button class="mini-link" data-shot="">Import sets from a Whoop screenshot</button><span class="ai-status" id="shotStatus" style="margin-left:8px"></span></div>`;
+  if (!hist.length) { $('liftTrends').innerHTML = (overview || `<div class="rp-empty">${whoopConnected ? 'No Whoop lifting sessions yet — log them in Whoop and they show up here.' : 'Connect Whoop in Settings to see your lifting.'}</div>`) + importLink; return; }
+  $('liftTrends').innerHTML = overview + '<div class="ready-label" style="margin:14px 0 2px">Strength by exercise</div>' + hist.slice(0, 12).map(x => {
     const pts = x.points.filter(p => p.best > 0), last = pts[pts.length - 1], first = pts[0];
     const prevBest = Math.max(0, ...pts.slice(0, -1).map(p => p.best));
     const pr = pts.length > 1 && last.best > prevBest;
@@ -1137,7 +1139,7 @@ function renderTrends() {
     return `<div class="trend-row"><div><div class="trend-name">${esc(x.name)}${pr ? '<span class="pr-badge">PR</span>' : ''}</div><div class="trend-meta">best set ${last.top.reps}×${last.top.weight} · ${pts.length} session${pts.length === 1 ? '' : 's'}</div></div>
       <div>${spark}</div>
       <div><div class="trend-val">${Math.round(last.best)}<small>e1RM</small></div><div class="trend-delta" style="color:${delta > 0 ? 'var(--lime)' : delta < 0 ? 'var(--orange)' : 'rgba(255,255,255,.45)'}">${delta == null ? 'first log' : `${delta > 0 ? '+' : ''}${Math.round(delta)} since ${new Date(first.date + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' })}`}</div></div></div>`;
-  }).join('');
+  }).join('') + importLink;
 }
 
 /* Activity history: every Whoop activity (all sport types), with logged lift sets attached */
@@ -1248,20 +1250,50 @@ function actRow(x) {
     <div class="act-body">
       <div>${w.kcal ? `${w.kcal} kcal` : ''}${w.avgHr ? ` · avg HR ${w.avgHr}` : ''}${w.maxHr ? ` · max ${w.maxHr}` : ''}${w.altGainM ? ` · ${Math.round(w.altGainM * 3.281)} ft climb` : ''}</div>
       ${zones}
-      ${l ? liftDetail(l) : isLift ? `<div class="hist-actions"><button class="btn-secondary" data-act="addsets">Add sets</button></div>` : ''}
+      ${l ? liftDetail(l) : isLift ? `<div style="margin-top:6px"><button class="mini-link" data-act="shot">Import sets from a Whoop screenshot</button></div>` : ''}
     </div></div>`;
 }
 function liftDetail(l) {
   return `${l.exercises.map(ex => `<div><strong style="color:#fff;font-weight:500">${esc(ex.name)}</strong> — ${ex.sets.map(s => `${s.reps}×${s.weight}`).join(', ')}</div>`).join('')}
-    <div class="hist-actions"><button class="btn-secondary" data-act="repeat">Repeat</button><button class="btn-secondary" data-act="edit">Edit</button><button class="btn-secondary" data-act="del">Delete sets</button></div>`;
+    <div class="hist-actions"><button class="btn-secondary" data-act="edit">Edit</button><button class="btn-secondary" data-act="del">Remove sets</button></div>`;
 }
 
+// Screenshot import: read exercises/sets/reps/weights from Whoop Strength Trainer screenshots
+let shotTarget = null;   // Whoop workout id to attach to, or null to match by the date on the screenshot
 $('liftTrends').addEventListener('click', e => {
-  const b = e.target.closest('[data-addsets]'); if (!b) return;
-  const w = whoopWo?.workouts.find(x => x.id === b.dataset.addsets); if (!w) return;
-  liftDraft = newDraft(); liftDraft.date = w.date; liftDraft.whoopId = w.id; liftDraft.name = prettySport(w.sport);
-  renderLiftForm(); $('liftForm').scrollIntoView({ behavior:'smooth', block:'start' });
+  const b = e.target.closest('[data-shot]'); if (!b) return;
+  shotTarget = b.dataset.shot || null; $('liftShot').click();
 });
+$('liftShot').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+  const status = msg => { const el = $('shotStatus'); if (el) { el.textContent = msg; el.className = 'ai-status thinking'; } };
+  status('Reading screenshot…');
+  try {
+    const imgs = await Promise.all(files.slice(0, 4).map(loadPhoto));
+    const txt = await callClaude({
+      model: CHAT_MODEL, max_tokens: 6000,
+      system: `You read screenshots of a WHOOP Strength Trainer workout (one workout, possibly across several screenshots). Extract every exercise in order with each set's reps and weight exactly as shown. Weight unit: "lb" or "kg" as displayed; bodyweight sets use weight 0. Ignore heart-rate charts and strain graphics. Use the workout date shown (YYYY-MM-DD) or empty if not visible.
+Finish with ONLY this JSON: {"date":"","name":"short session name or empty","exercises":[{"name":"","sets":[{"reps":0,"weight":0,"unit":"lb"}]}]}`,
+      messages: [{ role:'user', content: [...imgs.map(d => ({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:d.split(',')[1] } })), { type:'text', text:'Extract this workout.' }] }],
+      extra: { fallbacks:'default', output_config:{ effort:'medium' } }, beta: 'server-side-fallback-2026-07-01',
+    });
+    const end = txt.lastIndexOf('}'); let j = null;
+    for (let i = txt.indexOf('{'); i >= 0 && i < end && !j; i = txt.indexOf('{', i + 1)) { try { const o = JSON.parse(txt.slice(i, end + 1)); if (Array.isArray(o.exercises)) j = o; } catch {} }
+    if (!j || !j.exercises.length) throw new Error("Couldn't find any exercises in that screenshot.");
+    // Attach to the chosen Whoop session, else the Whoop lifting session on the screenshot's date, else the latest unlinked one
+    const liftWo = (whoopWo?.workouts || []).filter(w => actCat(w.sport)[0] === 'lifting');
+    const taken = new Set(lifts.filter(l => l.whoopId).map(l => l.whoopId));
+    const target = liftWo.find(w => w.id === shotTarget) || (/^\d{4}-\d{2}-\d{2}$/.test(j.date) && liftWo.find(w => w.date === j.date && !taken.has(w.id))) || liftWo.find(w => !taken.has(w.id));
+    liftDraft = {
+      id: null, imported: true, whoopId: target?.id || null, date: target?.date || (/^\d{4}-\d{2}-\d{2}$/.test(j.date) ? j.date : todayKey),
+      name: j.name || (target ? prettySport(target.sport) : 'Weightlifting'),
+      exercises: j.exercises.map(ex => ({ name: String(ex.name || '').trim(), sets: (ex.sets || []).map(st => ({ reps: parseInt(st.reps) || '', weight: st.weight ? Math.round((/kg/i.test(st.unit || '') ? st.weight * 2.20462 : +st.weight) * 10) / 10 : (st.weight === 0 ? 0 : '') })) })),
+    };
+    status('');
+    renderLiftForm(); $('liftForm').scrollIntoView({ behavior:'smooth', block:'start' });
+  } catch (err) { const el = $('shotStatus'); if (el) { el.textContent = err.message; el.className = 'ai-status err'; } }
+};
+
 $('liftHistory').addEventListener('click', e => {
   const f = e.target.closest('[data-af]');
   if (f) { actFilter = f.dataset.af; openWeeks.clear(); renderHistory(); return; }
@@ -1275,13 +1307,19 @@ $('liftHistory').addEventListener('click', e => {
   const wid = row.dataset.wid, w = whoopWo?.workouts.find(x => x.id === wid);
   const l = row.dataset.lift ? lifts.find(x => x.id === row.dataset.lift) : lifts.find(x => x.whoopId === wid);
   if (a === 'del') { lifts = lifts.filter(x => x.id !== l.id); saveLifts(); renderTrain(); return; }
-  if (a === 'addsets') { liftDraft = newDraft(); liftDraft.date = w.date; liftDraft.whoopId = w.id; liftDraft.name = prettySport(w.sport); }
-  else liftDraft = newDraft(a === 'edit' ? { ...l, keepId: true } : l);
+  if (a === 'shot') { shotTarget = w.id; $('liftShot').click(); return; }
+  liftDraft = newDraft(a === 'edit' ? { ...l, keepId: true } : l);
   if (a === 'edit') liftDraft.whoopId = l.whoopId || null;
   renderLiftForm(); $('liftForm').scrollIntoView({ behavior:'smooth', block:'start' });
 });
 
 // Training context for the coach: recent sessions, strength trends, and whether the lifting stimulus is new/increased
+function liftingLoadContext() {
+  const wo = (whoopWo?.workouts || []).filter(w => actCat(w.sport)[0] === 'lifting').slice(0, 12);
+  if (!wo.length) return '';
+  return `\n- Whoop lifting sessions (logged in Whoop's Strength Trainer; strain includes muscular load), newest first: ${wo.map(w => `${w.date} ${w.minutes}m strain ${w.strain ?? '—'}`).join('; ')}`;
+}
+
 function activityContext() {
   const wo = whoopWo?.workouts || [];
   if (!wo.length) return 'ACTIVITIES (Whoop): none synced.';
@@ -1291,11 +1329,11 @@ function activityContext() {
   return `ACTIVITIES (Whoop, all types):
 - Last 30 days: ${[...by].map(([c, e]) => `${c} ${e.n}× (${(e.min / 60).toFixed(1)} h${e.dist ? `, ${(e.dist / MI).toFixed(1)} mi` : ''})`).join(' · ') || 'none'}
 - Last 14 days:
-${recent.map(w => `  ${w.date} ${prettySport(w.sport)} ${w.minutes}m · strain ${w.strain ?? '—'}${w.kcal ? ` · ${w.kcal} kcal` : ''}${w.distanceM ? ` · ${(w.distanceM / MI).toFixed(1)} mi` : ''}${w.avgHr ? ` · avg HR ${w.avgHr}` : ''}`).join('\n') || '  (none)'}`;
+${recent.map(w => `  ${w.date} ${prettySport(w.sport)} ${w.minutes}m · strain ${w.strain ?? '—'}${w.kcal ? ` · ${w.kcal} kcal` : ''}${w.distanceM ? ` · ${(w.distanceM / MI).toFixed(1)} mi` : ''}${w.avgHr ? ` · avg HR ${w.avgHr}` : ''}`).join('\n') || '  (none)'}${liftingLoadContext()}`;
 }
 
 function trainingContext() {
-  if (!lifts.length) return activityContext() + '\n\nLIFTING SETS: none logged yet.';
+  if (!lifts.length) return activityContext() + '\n\nLIFTING SETS: not imported (the user logs lifts in Whoop; use Whoop session strain, frequency and body composition instead of exercise-level loads).';
   const now = Date.now(), dayMs = 86400000;
   const recent = [...lifts].sort((a, b) => b.ts - a.ts).filter(w => now - w.ts < 14 * dayMs);
   const prev = lifts.filter(w => now - w.ts >= 14 * dayMs && now - w.ts < 42 * dayMs);
@@ -2688,7 +2726,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.7';
+const BUILD = '2026-10-18.8';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
