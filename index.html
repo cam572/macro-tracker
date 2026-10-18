@@ -632,6 +632,24 @@ body { background:var(--bg); overflow-x:hidden; }
 .pp-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 .pp-actions button { flex:1; padding:11px; font-size:11px; min-width:120px; }
 
+/* Coach insights (engine) */
+.eng-card { padding:16px; }
+.eng-row { padding:12px 0; border-bottom:1px solid var(--border); }
+.eng-row:first-child { padding-top:2px; }
+.eng-row:last-child { border-bottom:none; padding-bottom:2px; }
+.eng-k { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.5); font-weight:500; display:flex; justify-content:space-between; gap:8px; }
+.eng-k .conf { font-family:var(--FM); font-size:10px; letter-spacing:0; text-transform:none; color:rgba(255,255,255,.45); }
+.eng-v { font-size:24px; font-weight:600; letter-spacing:-.02em; margin-top:4px; }
+.eng-v small { font-size:12px; font-weight:400; color:rgba(255,255,255,.55); margin-left:4px; letter-spacing:0; }
+.eng-note { font-size:13px; color:rgba(255,255,255,.72); margin-top:4px; line-height:1.5; }
+.eng-apply { margin-top:10px; padding:10px 14px; font-size:12px; width:auto; }
+.eng-bar { height:8px; border-radius:4px; background:rgba(255,255,255,.08); overflow:hidden; margin-top:8px; position:relative; }
+.eng-bar i { display:block; height:100%; border-radius:4px; background:linear-gradient(90deg, var(--acc1), var(--acc2)); }
+.eng-bar b { position:absolute; top:-3px; bottom:-3px; width:2px; background:#fff; opacity:.7; }
+.eng-foods { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+.eng-foods div { font-size:12px; color:rgba(255,255,255,.75); line-height:1.6; }
+.eng-foods .h { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.45); margin-bottom:2px; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -724,7 +742,9 @@ body { background:var(--bg); overflow-x:hidden; }
 
   <!-- ═══════════ INSIGHTS ═══════════ -->
   <section class="tab-panel" id="tab-insights" data-tab="insights">
-    <div class="section-label first">Recovery</div>
+    <div class="section-label first">Coach insights</div>
+    <div class="eng-card glass" id="engCard"></div>
+    <div class="section-label">Recovery</div>
     <div id="readiness"></div>
     <div class="section-label">Glucose</div>
     <div id="glucose"></div>
@@ -1015,6 +1035,189 @@ $('saveSetup').onclick = () => {
   activeSlot = null;
   renderToday();
 };
+
+/* ═══════════════════════════════ COACH ENGINE */
+// Deterministic analysis from the user's own data. No population thresholds — estimates start at the
+// user's current target and move toward what their weight trend + intake actually show as data builds up.
+const KCAL_PER_KG = 7700;
+const GOAL_OFFSET = { 'Lose Fat': -500, 'Build Muscle': 250, 'Recomp': -250, 'Maintain': 0 };
+const dayIntake = dk => totals((dk === todayKey ? day : loadDay(dk)).items).cal;
+
+// Exponentially smoothed trend weight (kg) per day, carried across days without a weigh-in
+function trendSeries(days = 120) {
+  const dw = new Map(dailyWeights().map(x => [x.dk, x.kg]));
+  const out = []; let tr = null;
+  for (let i = days; i >= 0; i--) {
+    const dk = dateKey(new Date(Date.now() - i * 86400000)), w = dw.get(dk);
+    if (w != null) tr = tr == null ? w : tr + 0.15 * (w - tr);
+    if (tr != null) out.push({ dk, trend: tr, scale: w ?? null });
+  }
+  return out;
+}
+
+// Lifting stimulus: new or ramped-up lifting makes the scale unreliable for ~2-3 weeks (water/glycogen)
+function liftingStimulus() {
+  const lw = (whoopWo?.workouts || []).filter(w => actCat(w.sport)[0] === 'lifting').map(w => Date.parse(w.start))
+    .concat(lifts.map(l => l.ts));
+  const now = Date.now(), d = 86400000;
+  const recent = lw.filter(t => now - t < 21 * d).length, prior = lw.filter(t => now - t >= 21 * d && now - t < 63 * d).length;
+  if (recent >= 2 && prior === 0) return { state:'new', note:'You started lifting in the last 3 weeks — expect the scale to hold extra water/glycogen for a while.' };
+  if (recent >= 3 && recent > (prior / 2) * 1.5) return { state:'up', note:'Lifting volume is up vs. last month — some scale water retention is likely.' };
+  return { state:'steady', note:'' };
+}
+
+function adaptiveTDEE() {
+  const T = S.targets.cal || 2000, off = GOAL_OFFSET[S.goal] ?? 0, prior = T - off;
+  const series = trendSeries(40).slice(-29); // ~4 weeks
+  const logged = series.map(x => ({ ...x, cal: dayIntake(x.dk) })).filter(x => x.dk !== todayKey && x.cal >= Math.max(1000, T * 0.6));
+  const weighIns = series.filter(x => x.scale != null).length;
+  let measured = null, slope = null;
+  if (series.length >= 14 && logged.length >= 7 && weighIns >= 6) {
+    // Least-squares slope of trend weight (kg/day)
+    const xs = series.map((_, i) => i), ys = series.map(x => x.trend), n = xs.length;
+    const mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
+    slope = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / xs.reduce((a, x) => a + (x - mx) ** 2, 0);
+    const avgIn = logged.reduce((a, x) => a + x.cal, 0) / logged.length;
+    measured = Math.min(5000, Math.max(1200, avgIn - slope * KCAL_PER_KG));
+  }
+  const stim = liftingStimulus();
+  let conf = measured == null ? 0 : Math.min(1, logged.length / 21) * Math.min(1, weighIns / 14) * (stim.state === 'steady' ? 1 : 0.6);
+  const est = measured == null ? prior : prior + conf * (measured - prior);
+  const suggested = Math.round((est + off) / 50) * 50;
+  return { prior, measured, est: Math.round(est), conf, suggested, current: T, off, slope, loggedDays: logged.length, weighIns, stim,
+    showSuggest: measured != null && conf >= 0.4 && Math.abs(suggested - T) >= 100 };
+}
+
+function weeklyBalance() {
+  const T = S.targets.cal || 0, ws = weekStart(Date.now());
+  const daysIn = Math.floor((Date.now() - ws) / 86400000) + 1; // incl. today
+  let intake = 0;
+  for (let i = 0; i < daysIn; i++) intake += dayIntake(dateKey(new Date(ws + i * 86400000)));
+  const budget = T * 7, left = budget - intake, daysLeft = 7 - daysIn + 1;
+  const pace = T * (daysIn - 1) + Math.min(dayIntake(todayKey), T); // where "on target" would be by now
+  return { budget, intake: Math.round(intake), left: Math.round(left), daysIn, daysLeft, perDay: Math.round(left / daysLeft), vsPace: Math.round(intake - pace) };
+}
+
+function scaleRead() {
+  const series = trendSeries(30), last = [...series].reverse().find(x => x.scale != null);
+  if (!last) return null;
+  const diffLb = (last.scale - last.trend) * LB;
+  const yk = dateKey(new Date(Date.parse(last.dk + 'T12:00:00') - 86400000));
+  const fl = { ...((loadDay(yk).flags) || {}), ...(((last.dk === todayKey ? day : loadDay(last.dk)).flags) || {}) };
+  const yCarbs = totals(loadDay(yk).items).c;
+  const avgCarbs = avgOf(Array.from({ length: 14 }, (_, i) => totals(loadDay(dateKey(new Date(Date.now() - (i + 2) * 86400000))).items).c).filter(c => c > 0)) || 0;
+  const why = [];
+  if (diffLb > 0) {
+    if (fl.sodium) why.push('high sodium'); if (fl.alcohol) why.push('alcohol'); if (fl.lift) why.push('lifting');
+    if (fl.travel) why.push('travel/poor sleep'); if (avgCarbs && yCarbs > avgCarbs * 1.3) why.push(`a big carb day (${r0(yCarbs)}g vs ~${r0(avgCarbs)}g)`);
+  } else if (fl.sauna) why.push('sauna/sweat');
+  const stim = liftingStimulus();
+  const tag = Math.abs(diffLb) < 0.6 ? 'On trend' : diffLb > 0 ? 'Above trend' : 'Below trend';
+  const note = Math.abs(diffLb) < 0.6 ? 'Today’s weigh-in matches your trend — nothing to read into.'
+    : diffLb > 0 ? `${diffLb.toFixed(1)} lb above trend${why.length ? ` — likely water from ${why.join(', ')}` : ' — most day-to-day jumps like this are water, not fat'}. Judge the trend, not today.`
+    : `${(-diffLb).toFixed(1)} lb below trend${why.length ? ` — likely water loss from ${why.join(', ')}` : ''}; expect some of it back.`;
+  return { dk: last.dk, scaleLb: last.scale * LB, trendLb: last.trend * LB, diffLb, tag, note: note + (stim.state !== 'steady' ? ' ' + stim.note : '') };
+}
+
+function compositionCheck() {
+  const e = bodyEntries().filter(x => x.kg != null && Date.now() - x.t < 35 * 86400000);
+  if (e.length < 6) return null;
+  const firstWk = e.filter(x => Date.now() - x.t > 21 * 86400000), lastWk = e.filter(x => Date.now() - x.t <= 7 * 86400000);
+  if (!firstWk.length || !lastWk.length) return null;
+  const a = avgOf(firstWk.map(x => x.kg)), b = avgOf(lastWk.map(x => x.kg));
+  const weeks = (avgOf(lastWk.map(x => x.t)) - avgOf(firstWk.map(x => x.t))) / (7 * 86400000);
+  const ratePct = weeks > 0 ? ((b - a) / a) * 100 / weeks : 0;
+  const bfA = firstWk.filter(x => x.bf != null), bfB = lastWk.filter(x => x.bf != null);
+  let leanA = null, leanB = null, fatChange = null, leanChange = null;
+  if (bfA.length && bfB.length) {
+    leanA = avgOf(bfA.map(x => x.kg * (1 - x.bf / 100))); leanB = avgOf(bfB.map(x => x.kg * (1 - x.bf / 100)));
+    fatChange = (avgOf(bfB.map(x => x.kg * x.bf / 100)) - avgOf(bfA.map(x => x.kg * x.bf / 100))) * LB; leanChange = (leanB - leanA) * LB;
+  }
+  // Strength signal from any imported sets
+  const ex = exerciseHistory().filter(x => x.points.length >= 2).map(x => (x.points[x.points.length - 1].best - x.points[0].best) / Math.max(1, x.points[0].best));
+  const strength = ex.length ? avgOf(ex) * 100 : null;
+  let verdict = 'Composition looks steady.';
+  if (ratePct < -1 && leanChange != null && leanChange < -1) verdict = 'Losing fast and lean mass is dipping — possible muscle loss. Consider a smaller deficit and keep protein high.';
+  else if (leanChange != null && leanChange < -1.5 && (strength == null || strength < 0)) verdict = 'Lean mass trending down — prioritize protein and keep lifting heavy.';
+  else if (fatChange != null && fatChange < -0.5 && (leanChange == null || leanChange > -0.5)) verdict = 'Losing fat while holding lean mass — this is the goal.';
+  else if (ratePct > 0.5 && S.goal === 'Lose Fat') verdict = 'Weight trending up — check the weekly balance below.';
+  return { ratePct, fatChange, leanChange, strength, verdict, bodyFatScale: bfA.length > 0 };
+}
+
+// Personal glucose learning across all logged meals with CGM coverage
+function glucoseLearning() {
+  if (!gluData?.status?.configured) return null;
+  const foods = new Map(), tod = { am:[], pm:[] }, post = { yes:[], no:[] };
+  const wo = (whoopWo?.workouts || []).map(w => Date.parse(w.end));
+  for (let i = 13; i >= 0; i--) {
+    for (const m of dayMealResponses(dateKey(new Date(Date.now() - i * 86400000)))) {
+      if (!m.resp?.complete || m.resp.overlapped) continue;
+      const carbs = totals(m.items).c, perCarb = carbs >= 10 ? m.resp.rise / (carbs / 10) : null;
+      for (const it of m.items) {
+        const k = String(it.name).toLowerCase().replace(/[\d.]+\s*(oz|g|cups?|tbsp|tsp|slices?|lb|ml)?/g, '').replace(/\s+/g, ' ').trim();
+        if (!k) continue; const f = foods.get(k) || { name: it.name, rises: [] }; f.rises.push(m.resp.rise); foods.set(k, f);
+      }
+      if (perCarb != null) {
+        (new Date(m.ts).getHours() < 12 ? tod.am : new Date(m.ts).getHours() >= 17 ? tod.pm : []).push(perCarb);
+        (wo.some(e => m.ts - e >= 0 && m.ts - e < 2 * 3600000) ? post.yes : post.no).push(perCarb);
+      }
+    }
+  }
+  const list = [...foods.values()].map(f => ({ name: f.name, rise: avgOf(f.rises), n: f.rises.length })).sort((a, b) => a.rise - b.rise);
+  return { steady: list.slice(0, 3), spiky: list.slice(-3).reverse().filter(f => !list.slice(0, 3).includes(f)), total: list.length,
+    am: tod.am.length >= 2 ? avgOf(tod.am) : null, pm: tod.pm.length >= 2 ? avgOf(tod.pm) : null,
+    postWo: post.yes.length >= 2 ? avgOf(post.yes) : null, notPostWo: post.no.length >= 2 ? avgOf(post.no) : null };
+}
+
+// Glycemic strictness from the lab's own ranges (no invented cut-offs)
+function glycemicStrictness() {
+  const keys = ['fasting insulin', 'hba1c', 'fasting glucose'];
+  const latest = labsByMarker().map(rs => rs[0]).filter(r => keys.includes(labKey(r.marker)));
+  if (!latest.length) return { level:'standard', why:'No metabolic labs on file yet.' };
+  const high = latest.filter(r => labFlag(r) === 'High');
+  if (high.length) return { level:'tight', why:`${high.map(r => r.marker).join(', ')} above the lab's range.` };
+  const near = latest.filter(r => r.refHigh != null && r.refLow != null && r.value >= r.refHigh - 0.15 * (r.refHigh - r.refLow));
+  if (near.length) return { level:'moderate', why:`${near.map(r => r.marker).join(', ')} in the upper part of the lab's range.` };
+  return { level:'standard', why:'Metabolic labs within range.' };
+}
+
+function renderEngine() {
+  if (!$('engCard')) return;
+  const td = adaptiveTDEE(), wk = weeklyBalance(), sr = scaleRead(), cc = compositionCheck(), gl = glucoseLearning(), gs = glycemicStrictness();
+  const confTxt = td.measured == null ? `learning · ${td.loggedDays}/7 logged days, ${td.weighIns}/6 weigh-ins` : `${Math.round(td.conf * 100)}% confidence`;
+  const wkPct = wk.budget ? Math.min(1, wk.intake / wk.budget) : 0, pacePct = wk.budget ? Math.min(1, (S.targets.cal * wk.daysIn) / wk.budget) : 0;
+  $('engCard').innerHTML = `
+    <div class="eng-row"><div class="eng-k">Your maintenance<span class="conf">${confTxt}</span></div>
+      <div class="eng-v">${td.est.toLocaleString()}<small>kcal/day</small></div>
+      <div class="eng-note">${td.measured == null ? `Starting from your target. Keep logging and weighing in — this adapts to what your body actually does.` : `From your weight trend (${td.slope != null ? `${(td.slope * 7 * LB) > 0 ? '+' : ''}${(td.slope * 7 * LB).toFixed(1)} lb/wk` : ''}) vs. ~${r0(td.measured)} kcal measured.`}${td.stim.state !== 'steady' ? ' Lower confidence: ' + td.stim.note : ''}</div>
+      ${td.showSuggest ? `<div class="eng-note">For ${esc(S.goal)}, that points to <b style="color:#fff">${td.suggested.toLocaleString()} kcal</b> (now ${td.current.toLocaleString()}).</div><button class="btn-primary eng-apply" id="engApply">Use ${td.suggested.toLocaleString()} kcal</button>` : ''}
+    </div>
+    <div class="eng-row"><div class="eng-k">This week<span class="conf">day ${wk.daysIn} of 7</span></div>
+      <div class="eng-v">${wk.intake.toLocaleString()}<small>/ ${wk.budget.toLocaleString()} kcal</small></div>
+      <div class="eng-bar"><i style="width:${wkPct * 100}%"></i><b style="left:${pacePct * 100}%"></b></div>
+      <div class="eng-note">${wk.left >= 0 ? `${wk.left.toLocaleString()} left · ~${wk.perDay.toLocaleString()}/day for the rest of the week` : `${(-wk.left).toLocaleString()} over the weekly budget`}${Math.abs(wk.vsPace) >= 150 ? ` · ${Math.abs(wk.vsPace).toLocaleString()} kcal ${wk.vsPace > 0 ? 'over' : 'under'} pace` : ' · right on pace'}.</div>
+    </div>
+    ${sr ? `<div class="eng-row"><div class="eng-k">Scale read<span class="conf">trend ${sr.trendLb.toFixed(1)} lb</span></div><div class="eng-v" style="font-size:18px">${sr.tag}</div><div class="eng-note">${esc(sr.note)}</div></div>` : ''}
+    ${cc ? `<div class="eng-row"><div class="eng-k">Fat vs. muscle<span class="conf">last ~4 weeks</span></div><div class="eng-note" style="margin-top:6px">${esc(cc.verdict)}</div>
+      <div class="eng-note" style="font-family:var(--FM);font-size:11px;color:rgba(255,255,255,.5)">${cc.ratePct >= 0 ? '+' : ''}${cc.ratePct.toFixed(2)}%/wk${cc.fatChange != null ? ` · fat ${cc.fatChange >= 0 ? '+' : ''}${cc.fatChange.toFixed(1)} lb · lean ${cc.leanChange >= 0 ? '+' : ''}${cc.leanChange.toFixed(1)} lb` : ''}${cc.strength != null ? ` · strength ${cc.strength >= 0 ? '+' : ''}${cc.strength.toFixed(1)}%` : ''}</div></div>` : ''}
+    ${gl && gl.total ? `<div class="eng-row"><div class="eng-k">Your glucose patterns<span class="conf">${gl.total} foods</span></div>
+      <div class="eng-foods"><div><div class="h">Steadiest</div>${gl.steady.map(f => `${esc(f.name)} <span style="color:var(--lime)">+${r0(f.rise)}</span>`).join('<br>')}</div><div><div class="h">Biggest rises</div>${gl.spiky.map(f => `${esc(f.name)} <span style="color:var(--orange)">+${r0(f.rise)}</span>`).join('<br>') || '—'}</div></div>
+      ${gl.am != null && gl.pm != null ? `<div class="eng-note">Per 10g carbs: +${r0(gl.am)} in the morning vs +${r0(gl.pm)} in the evening.</div>` : ''}${gl.postWo != null && gl.notPostWo != null ? `<div class="eng-note">After training: +${r0(gl.postWo)} per 10g carbs vs +${r0(gl.notPostWo)} otherwise.</div>` : ''}</div>` : ''}
+    <div class="eng-row"><div class="eng-k">Glucose guardrails</div><div class="eng-v" style="font-size:18px;text-transform:capitalize">${gs.level}</div><div class="eng-note">${esc(gs.why)}</div></div>`;
+  const ap = $('engApply'); if (ap) ap.onclick = () => { S.targets.cal = td.suggested; store.set('mt_settings', S); renderToday(); };
+}
+
+// Engine output for the coach — exact numbers it should rely on
+function engineContext() {
+  const td = adaptiveTDEE(), wk = weeklyBalance(), sr = scaleRead(), cc = compositionCheck(), gl = glucoseLearning(), gs = glycemicStrictness();
+  return `COACH ENGINE (computed from the user's own data — rely on these numbers):
+- Estimated maintenance: ${td.est} kcal/day (${td.measured == null ? `still learning: ${td.loggedDays} complete logged days, ${td.weighIns} weigh-ins — using their target as the prior` : `${Math.round(td.conf * 100)}% confidence; measured ${r0(td.measured)} from trend ${(td.slope * 7 * LB).toFixed(2)} lb/wk`}). Goal ${S.goal} → suggested target ${td.suggested} vs current ${td.current}.${td.stim.state !== 'steady' ? ' ' + td.stim.note : ''}
+- Weekly balance (Mon–Sun): ${wk.intake} of ${wk.budget} kcal on day ${wk.daysIn}; ${wk.left >= 0 ? `${wk.left} left (~${wk.perDay}/day)` : `${-wk.left} over`}; ${wk.vsPace >= 0 ? `${wk.vsPace} kcal over` : `${-wk.vsPace} kcal under`} pace. Judge adherence weekly, not by single days; food quality and timing matter more as the deficit tightens.
+${sr ? `- Scale read (${sr.dk}): ${sr.scaleLb.toFixed(1)} lb vs trend ${sr.trendLb.toFixed(1)} — ${sr.note}` : '- Scale read: no recent weigh-in.'}
+${cc ? `- Fat vs muscle (≈4 wks): ${cc.verdict} Rate ${cc.ratePct.toFixed(2)}%/wk${cc.fatChange != null ? `, fat ${cc.fatChange.toFixed(1)} lb, lean ${cc.leanChange.toFixed(1)} lb (scale BIA — directional)` : ''}${cc.strength != null ? `, strength ${cc.strength.toFixed(1)}%` : ''}.` : '- Fat vs muscle: not enough body data yet.'}
+${gl && gl.total ? `- Glucose learning: steadiest ${gl.steady.map(f => `${f.name} (+${r0(f.rise)}, n=${f.n})`).join(', ')}; biggest rises ${gl.spiky.map(f => `${f.name} (+${r0(f.rise)}, n=${f.n})`).join(', ') || '—'}${gl.am != null && gl.pm != null ? `; per 10g carbs AM +${r0(gl.am)} vs PM +${r0(gl.pm)}` : ''}${gl.postWo != null ? `; post-workout +${r0(gl.postWo)} vs other +${r0(gl.notPostWo)}` : ''}.` : '- Glucose learning: not enough CGM-covered meals yet.'}
+- Glucose guardrails: ${gs.level.toUpperCase()} — ${gs.why} (tight = smaller carb portions, carbs earlier/around training, protein+fiber first; standard = normal balanced meals).`;
+}
 
 /* ═══════════════════════════════ TRAIN (strain + lifting) */
 // Lifts live on this phone: [{ id, date, ts, name, exercises:[{ name, sets:[{ reps, weight }] }] }], weights in lb.
@@ -1535,6 +1738,7 @@ function renderToday() {
   renderReadiness();
   renderGlucose();
   renderBody();
+  renderEngine();
   if (currentTab === 'train') renderTrain(true);
 }
 
@@ -1767,9 +1971,12 @@ ${bodyContext()}
 
 ${trainingContext()}
 
+${engineContext()}
+
 COACHING
 - Voice: functional-medicine coach — explain the likely root cause behind what the data shows and give specific next steps, personalized to this user's own patterns. Lifestyle and nutrition guidance only: no diagnoses, no medication advice; if something looks medically concerning, suggest talking to their clinician.
 - Training & recovery (when Whoop data is present): judge readiness against the user's OWN baselines (HRV and RHR vs their 14-day average, sleep vs their need, recent strain and how many hard days in a row) rather than fixed cut-offs. Recommend hard / moderate / light-or-recovery with a concrete session idea and a reason. If data is missing or Whoop is calibrating, say so and lean conservative. Suggest recovery days when the signals stack up, not on a fixed schedule.
+- Coach engine: base calorie advice on the estimated maintenance and weekly balance (offer the suggested target when confidence allows; never change it silently). Explain scale changes with the scale read, and adjust protein/deficit guidance from the fat-vs-muscle check. Steer food choices with the user's glucose learning and match strictness to the guardrails level.
 - Training: use strength trends with weight and body fat to judge fat vs muscle loss — strength holding or rising during a deficit means the loss is mostly fat; falling strength plus fast weight loss suggests too steep a deficit or too little protein. When recommending sessions, build from their actual logged exercises and loads (progress by small load or rep jumps), and match intensity to today's readiness.
 - Weight & body composition: judge the 7-day average and its direction, never a single weigh-in. Day-to-day jumps after high-sodium, alcohol, sauna/sweat, travel, big carb days or a new/heavier lifting stimulus are usually water and glycogen — say so plainly ("this looks like water, not fat") so the user doesn't get discouraged. Use body fat % trend alongside weight to tell fat loss from muscle loss.
 - Labs as a baseline: use them to calibrate how strict to be. Elevated fasting insulin, HbA1c or fasting glucose (per the lab's range) → tighter glycemic guardrails (smaller carb portions per meal, carbs earlier/around training, more protein/fiber first); clean metabolic labs → looser. Lipids, hs-CRP, vitamin D, thyroid and ferritin inform food quality, fiber, omega-3, sunlight/sleep and recovery advice. Explain the likely root cause in plain language and the lifestyle levers that move each marker, and point out trends across draws. Never diagnose or suggest medication/dose changes; for out-of-range or worsening values, suggest discussing them with their clinician.
@@ -2860,7 +3067,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.9';
+const BUILD = '2026-10-18.10';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
