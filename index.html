@@ -1478,12 +1478,52 @@ Finish with ONLY this JSON: {"name":"short program name or empty","days":[{"labe
   } catch (err) { status(err.message, 'err'); }
 };
 
+// Coach-proposed plan changes: shown as a diff card, applied only when the user taps Apply (Undo restores)
+function normalizePlan(pl) {
+  if (!pl || !Array.isArray(pl.days)) return null;
+  const days = pl.days.map(d => ({ label: String(d.label || '').trim() || 'Day', exercises: (d.exercises || []).filter(x => x && x.name).map(x => ({ name: String(x.name).trim(), sets: String(x.sets ?? '').trim(), reps: String(x.reps ?? '').trim(), notes: String(x.notes ?? '').trim() })) })).filter(d => d.exercises.length);
+  return days.length ? { name: String(pl.name || '').trim(), days } : null;
+}
+const exLine = x => `${x.name}${x.sets || x.reps ? ' ' + [x.sets, x.reps].filter(Boolean).join('×') : ''}${x.notes ? ` (${x.notes})` : ''}`;
+function planDiff(oldP, newP) {
+  const out = [], key = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const oldDays = new Map((oldP?.days || []).map(d => [key(d.label), d]));
+  for (const nd of newP.days) {
+    const od = oldDays.get(key(nd.label)); oldDays.delete(key(nd.label));
+    if (!od) { out.push(['+', `${nd.label}: new day (${nd.exercises.length} exercises)`]); continue; }
+    const oe = new Map(od.exercises.map(x => [key(x.name), x]));
+    for (const x of nd.exercises) {
+      const o = oe.get(key(x.name)); oe.delete(key(x.name));
+      if (!o) out.push(['+', `${nd.label}: ${exLine(x)}`]);
+      else if (exLine(o) !== exLine(x)) out.push(['~', `${nd.label}: ${exLine(o)} → ${[x.sets, x.reps].filter(Boolean).join('×')}${x.notes ? ` (${x.notes})` : ''}`]);
+    }
+    for (const o of oe.values()) out.push(['−', `${nd.label}: ${o.name}`]);
+  }
+  for (const od of oldDays.values()) out.push(['−', `${od.label} (whole day)`]);
+  return out;
+}
+function planEditCard(pe, m, mi) {
+  const diff = m.planBase ? planDiff(m.planBase, pe.plan) : planDiff(plan, pe.plan);
+  const state = m.planState; // undefined | 'applied' | 'dismissed' | 'undone'
+  const col = { '+':'var(--lime)', '−':'var(--orange)', '~':'#fff' };
+  return `<div class="log-card" style="display:block;margin-top:10px">
+    <div class="eng-k" style="margin-bottom:6px">${plan || m.planBase ? 'Proposed plan change' : 'Proposed new plan'}<span class="conf">${diff.length} change${diff.length === 1 ? '' : 's'}</span></div>
+    ${pe.summary ? `<div class="eng-note" style="margin:0 0 6px">${esc(pe.summary)}</div>` : ''}
+    <div style="font-size:12px;line-height:1.7">${diff.slice(0, 10).map(([s, t]) => `<div><b style="color:${col[s]};display:inline-block;width:14px">${s}</b>${esc(t)}</div>`).join('') || '<div class="eng-note">No differences from your current plan.</div>'}${diff.length > 10 ? `<div class="eng-note">+${diff.length - 10} more</div>` : ''}</div>
+    <div class="call-actions" style="margin-top:10px">${state === 'applied' ? `<button class="btn-secondary" data-pe="undo" data-mi="${mi}">Undo</button><button class="log-btn done" style="flex:2" disabled>✓ Applied</button>`
+      : state === 'dismissed' ? `<button class="log-btn done" style="flex:1" disabled>Dismissed</button>`
+      : state === 'undone' ? `<button class="log-btn done" style="flex:1" disabled>Undone</button>`
+      : `<button class="btn-secondary" data-pe="dismiss" data-mi="${mi}">Dismiss</button><button class="btn-primary" style="flex:2" data-pe="apply" data-mi="${mi}">Apply to my plan</button>`}</div>
+  </div>`;
+}
+
 function planContext() {
-  if (!plan) return 'LIFTING PLAN: none saved.';
+  const editRule = `\n- EDITING THE PLAN: when the user asks to change their program — or, occasionally, when their data gives you a clearly better idea (a lift stalling, recovery repeatedly tanking after a certain day, a mismatch with their goal, a restriction/injury) — propose it with ONE sentence of reasoning plus, on its own line, the FULL updated plan (every day and exercise, including unchanged ones):\n<planedit>{"summary":"one short line on what changed","plan":{"name":"","days":[{"label":"","exercises":[{"name":"","sets":"","reps":"","notes":""}]}]}}</planedit>\n  The app shows the user a change card with Apply/Dismiss — never say the plan is already changed. Don't propose unprompted changes more than about once a week, and never alongside unrelated food advice.`;
+  if (!plan) return 'LIFTING PLAN: none saved. If the user asks for a program, you may build one with the same <planedit> block.' + editRule;
   const liftDates = (whoopWo?.workouts || []).filter(w => actCat(w.sport)[0] === 'lifting').slice(0, 8).map(w => w.date);
   return `LIFTING PLAN ("${plan.name || 'My plan'}", saved ${new Date(plan.savedAt).toISOString().slice(0, 10)}):
 ${plan.days.map(d => `  ${d.label}: ${d.exercises.map(x => `${x.name}${x.sets || x.reps ? ` ${[x.sets, x.reps].filter(Boolean).join('×')}` : ''}${x.notes ? ` (${x.notes})` : ''}`).join('; ')}`).join('\n')}
-- Recent Whoop lifting dates (newest first): ${liftDates.join(', ') || 'none'}. When planning a session, work out which plan day is likely next from the rotation and recent sessions (ask if unclear), then scale volume/intensity to today's readiness — keep the plan's exercises, adjust sets/load, don't invent a different program.`;
+- Recent Whoop lifting dates (newest first): ${liftDates.join(', ') || 'none'}. When planning a session, work out which plan day is likely next from the rotation and recent sessions (ask if unclear), then scale volume/intensity to today's readiness — keep the plan's exercises, adjust sets/load, don't invent a different program.${editRule}`;
 }
 
 function renderTrain(fromSync) {
@@ -2264,12 +2304,13 @@ function mdLite(s) {
 }
 
 function parseBot(text) {
-  const logs = []; let followups = [];
+  const logs = []; let followups = [], planEdit = null;
   const prose = text
     .replace(/<log>([\s\S]*?)<\/log>/g, (_, j) => { try { logs.push(JSON.parse(j)); } catch {} return ''; })
     .replace(/<followups>([\s\S]*?)<\/followups>/g, (_, j) => { try { followups = JSON.parse(j).filter(x => typeof x === 'string').slice(0, 3); } catch {} return ''; })
+    .replace(/<planedit>([\s\S]*?)<\/planedit>/g, (_, j) => { try { const o = JSON.parse(j); const pl = normalizePlan(o.plan); if (pl) planEdit = { summary: String(o.summary || ''), plan: pl }; } catch {} return ''; })
     .trim();
-  return { prose, logs, followups };
+  return { prose, logs, followups, planEdit };
 }
 
 function renderChat() {
@@ -2279,14 +2320,14 @@ function renderChat() {
   } else {
     body.innerHTML = chat.map((m, mi) => {
       if (m.role === 'user') return `<div class="msg user">${esc(m.content).replace(/\n/g, '<br>')}</div>`;
-      const { prose, logs, followups } = parseBot(m.content);
+      const { prose, logs, followups, planEdit } = parseBot(m.content);
       const isLast = mi === chat.length - 1 && !chatBusy;
       return `<div class="msg bot">${mdLite(prose)}${logs.map((l, li) => {
         const done = (m.logged || []).includes(li);
         return `<div class="log-card"><div class="fli-main"><div class="fli-name">${esc(l.name)}</div>
           <div class="fli-macros">${r0(n(l.cal))} kcal · P ${r1(n(l.p))} · C ${r1(n(l.c))} · S ${r1(n(l.s))} · F ${r1(n(l.f))}${l.meal ? ' · ' + esc(l.meal) : ''}</div></div>
           <button class="log-btn ${done ? 'done' : ''}" data-log="${mi}:${li}">${done ? '✓ Logged' : '+ Log'}</button></div>`;
-      }).join('')}${isLast && followups.length ? `<div class="fu-row">${followups.map(q => `<button class="chip fu-chip" data-fu="${esc(q)}">${esc(q)}</button>`).join('')}</div>` : ''}</div>`;
+      }).join('')}${planEdit ? planEditCard(planEdit, m, mi) : ''}${isLast && followups.length ? `<div class="fu-row">${followups.map(q => `<button class="chip fu-chip" data-fu="${esc(q)}">${esc(q)}</button>`).join('')}</div>` : ''}</div>`;
     }).join('');
   }
   if (chatBusy) body.innerHTML += `<div class="msg bot thinking">Thinking…</div>`;
@@ -2403,7 +2444,19 @@ $('chatBody').onclick = e => {
   renderChat();
 };
 $('quickRow').onclick = e => { const b = e.target.closest('[data-q]'); if (b) sendChat(b.dataset.q); };
-$('chatBody').addEventListener('click', e => { const f = e.target.closest('[data-fu]'); if (f) sendChat(f.dataset.fu); });
+$('chatBody').addEventListener('click', e => {
+  const f = e.target.closest('[data-fu]'); if (f) return sendChat(f.dataset.fu);
+  const b = e.target.closest('[data-pe]'); if (!b) return;
+  const m = chat[+b.dataset.mi], pe = parseBot(m.content).planEdit; if (!pe) return;
+  if (b.dataset.pe === 'apply') {
+    m.planBase = plan ? JSON.parse(JSON.stringify(plan)) : null;   // remember what it replaced (for the diff + Undo)
+    plan = { ...pe.plan, name: pe.plan.name || plan?.name || 'My plan', savedAt: Date.now() };
+    store.set('mt_plan', plan); m.planState = 'applied';
+  } else if (b.dataset.pe === 'undo') {
+    plan = m.planBase; store.set('mt_plan', plan); m.planState = 'undone';
+  } else m.planState = 'dismissed';
+  saveChat(); renderChat(); if (currentTab === 'train') renderPlan();
+});
 $('chatSend').onclick = () => sendChat($('chatInput').value);
 $('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat($('chatInput').value); } };
 function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
@@ -3334,7 +3387,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-19.3';
+const BUILD = '2026-10-19.4';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
