@@ -416,6 +416,17 @@ textarea.input-field { resize: vertical; min-height: 64px; line-height: 1.5; }
 .grocery-img { display:block; width:100%; max-height:260px; object-fit:contain; background:var(--s2); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; }
 .grocery-actions { display:flex; gap:8px; }
 .grocery-actions .btn-secondary { flex:1; }
+.gl-head { display:flex; justify-content:space-between; align-items:center; margin:4px 0 8px; }
+.gl-cat { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:12px 0 4px; }
+.gl-item { display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--border); }
+.gl-check { width:22px; height:22px; border-radius:7px; border:1.5px solid var(--border2); background:none; color:#000; font-size:13px; font-weight:800; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+.gl-item.done .gl-check { background:var(--lime); border-color:var(--lime); }
+.gl-name { flex:1; min-width:0; font-size:14px; }
+.gl-item.done .gl-name { color:var(--muted); text-decoration:line-through; }
+.gl-qty { color:var(--muted); font-size:12px; font-family:var(--FM); white-space:nowrap; }
+.gl-del { background:none; border:none; color:var(--muted); font-size:13px; cursor:pointer; padding:4px; }
+.gl-empty { color:var(--muted); font-size:13px; padding:6px 0 10px; line-height:1.6; }
+.gl-photo-label { margin-top:18px; }
 
 .hidden { display:none !important; }
 
@@ -927,7 +938,13 @@ body.coach-mode.kb-open .chat-empty { display:none; }
 
     <div class="settings-section" data-sec="grocery">
       <div class="settings-section-title">Grocery List</div>
-      <div class="settings-section-sub">Snap your grocery list and the coach builds meals from it. Only your latest photo is kept.</div>
+      <div class="settings-section-sub">Check items off while you shop. Ask the coach to build, change or add to this list. You can also snap a photo of a paper list.</div>
+      <div id="glistBox"></div>
+      <div class="add-row">
+        <input class="input-field" id="glistInput" placeholder="Add an item, e.g. 2 lb chicken thighs">
+        <button class="btn-secondary" id="glistAdd">Add</button>
+      </div>
+      <label class="mini-label gl-photo-label">List photo (only the latest is kept)</label>
       <input type="file" id="groceryInput" accept="image/*" hidden>
       <div id="groceryBox"></div>
       <div class="settings-status" id="groceryStatus"></div>
@@ -1050,7 +1067,7 @@ function renderSetup() {
   $('goalRow').innerHTML = GOALS.map(g => `<button class="goal-btn ${S.goal === g ? 'active' : ''}" data-goal="${g}">${g}</button>`).join('');
   renderSchedule();
   renderRestrictions();
-  renderGrocery();
+  renderGrocery(); renderGlist();
   setGroceryStatus('');
   renderConnections();
   setConnStatus('');
@@ -1143,7 +1160,7 @@ function setSummary(key) {
     case 'profile': return `${S.name || 'No name'} · ${S.goal} · ${(S.targets.cal || 0).toLocaleString()} kcal`;
     case 'schedule': return common === 0 ? 'Mostly fasting days' : `${common} meal${common === 1 ? '' : 's'} most days${S.schedule.some(d => d.count === 0) ? ' · has fasting days' : ''}`;
     case 'diet': { const r = [...S.presets, ...S.custom]; return r.length ? r.join(', ') : 'No restrictions'; }
-    case 'grocery': return groceryImg ? 'Photo saved — coach uses it' : 'No list';
+    case 'grocery': { const n = glist?.items.length || 0, left = n - (glist?.items.filter(i => i.done).length || 0); return n ? `${n} item${n === 1 ? '' : 's'}${left < n ? ` · ${left} left` : ''}${groceryImg ? ' · photo' : ''}` : groceryImg ? 'Photo saved' : 'No list'; }
     case 'connections': return `Whoop ${whoopConnected ? '✓' : '—'} · Libre 3 ${gluData?.status?.configured ? '✓' : '—'}${conn.key ? '' : ' · server key missing'}`;
     case 'labs': { const m = labsByMarker().length; return m ? `${m} marker${m === 1 ? '' : 's'} on file` : 'None yet'; }
   }
@@ -1530,6 +1547,60 @@ function planEditCard(pe, m, mi) {
       : state === 'undone' ? `<button class="log-btn done" style="flex:1" disabled>Undone</button>`
       : `<button class="btn-secondary" data-pe="dismiss" data-mi="${mi}">Dismiss</button><button class="btn-primary" style="flex:2" data-pe="apply" data-mi="${mi}">Apply to my plan</button>`}</div>
   </div>`;
+}
+
+// Grocery list (mt_glist): coach proposes the FULL updated list in a <grocery> block; it changes only on Apply
+let glist = store.get('mt_glist', null); // { items:[{name, qty, cat, done}], updatedAt }
+const GL_CATS = ['Produce', 'Meat & seafood', 'Dairy & eggs', 'Pantry', 'Frozen', 'Bakery', 'Drinks', 'Other'];
+function normalizeGlist(o) {
+  const items = (Array.isArray(o?.items) ? o.items : []).filter(x => x && String(x.name || '').trim()).map(x => ({ name: String(x.name).trim(), qty: String(x.qty ?? '').trim(), cat: GL_CATS.includes(x.cat) ? x.cat : 'Other', done: !!x.done }));
+  return { items };
+}
+const glKey = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+const glLine = x => `${x.name}${x.qty ? ` (${x.qty})` : ''}`;
+function glistDiff(oldL, newL) {
+  const out = [], old = new Map((oldL?.items || []).map(x => [glKey(x.name), x]));
+  for (const x of newL.items) {
+    const o = old.get(glKey(x.name)); old.delete(glKey(x.name));
+    if (!o) out.push(['+', glLine(x)]);
+    else if ((o.qty || '') !== (x.qty || '')) out.push(['~', `${o.name}: ${o.qty || '—'} → ${x.qty || '—'}`]);
+  }
+  for (const o of old.values()) out.push(['−', o.name]);
+  return out;
+}
+function saveGlist(l) { glist = l && l.items.length ? { items: l.items, updatedAt: Date.now() } : null; store.set('mt_glist', glist); renderGlist(); }
+function glistContext() {
+  const rule = `- EDITING THE GROCERY LIST: when the user asks you to make, change, add to or clean up their grocery list (or to turn the list photo into a list), reply with ONE short sentence plus, on its own line, the FULL updated list (every item, including unchanged ones; keep "done":true on items already checked off):
+<grocery>{"summary":"one short line on what changed","items":[{"name":"Chicken thighs, boneless","qty":"2 lb","cat":"Meat & seafood","done":false}]}</grocery>
+  cat must be one of: ${GL_CATS.join(', ')}. Use specific items with quantities sized to the meals you're planning (e.g. a week of their meal count) and respect their restrictions. The app shows a change card with Apply/Dismiss — never say the list is already changed. Only include a <grocery> block when the list is the topic.`;
+  if (!glist) return 'GROCERY LIST (in the app): empty.\n' + rule;
+  return `GROCERY LIST (in the app, ${glist.items.length} items; ✓ = already bought):
+${glist.items.map(x => `  ${x.done ? '✓ ' : ''}${glLine(x)} [${x.cat}]`).join('\n')}
+- When suggesting home meals, prefer what's on this list (bought items first).
+${rule}`;
+}
+function glistEditCard(ge, m, mi) {
+  const diff = glistDiff(m.glBase !== undefined ? m.glBase : glist, ge);
+  const state = m.glState, col = { '+':'var(--lime)', '−':'var(--orange)', '~':'#fff' };
+  const had = m.glBase !== undefined ? m.glBase : glist;
+  return `<div class="log-card" style="display:block;margin-top:10px">
+    <div class="eng-k" style="margin-bottom:6px">${had ? 'Grocery list change' : 'New grocery list'}<span class="conf">${had ? `${diff.length} change${diff.length === 1 ? '' : 's'}` : `${ge.items.length} items`}</span></div>
+    ${ge.summary ? `<div class="eng-note" style="margin:0 0 6px">${esc(ge.summary)}</div>` : ''}
+    <div style="font-size:12px;line-height:1.7">${diff.slice(0, 12).map(([sg, t]) => `<div><b style="color:${col[sg]};display:inline-block;width:14px">${sg}</b>${esc(t)}</div>`).join('') || '<div class="eng-note">Same as your current list.</div>'}${diff.length > 12 ? `<div class="eng-note">+${diff.length - 12} more</div>` : ''}</div>
+    <div class="call-actions" style="margin-top:10px">${state === 'applied' ? `<button class="btn-secondary" data-ge="undo" data-mi="${mi}">Undo</button><button class="btn-secondary" style="flex:2" data-ge="open">Open list ›</button>`
+      : state === 'dismissed' ? `<button class="log-btn done" style="flex:1" disabled>Dismissed</button>`
+      : state === 'undone' ? `<button class="log-btn done" style="flex:1" disabled>Undone</button>`
+      : `<button class="btn-secondary" data-ge="dismiss" data-mi="${mi}">Dismiss</button><button class="btn-primary" style="flex:2" data-ge="apply" data-mi="${mi}">${had ? 'Update my list' : 'Save list'}</button>`}</div>
+  </div>`;
+}
+function renderGlist() {
+  const box = $('glistBox'); if (!box) return;
+  const items = glist?.items || [];
+  if (!items.length) { box.innerHTML = `<div class="gl-empty">No items yet. Add some below, or ask the coach: "Make me a grocery list for this week."</div>`; return; }
+  const done = items.filter(i => i.done).length;
+  const groups = GL_CATS.map(c => [c, items.map((x, i) => [x, i]).filter(([x]) => x.cat === c)]).filter(([, g]) => g.length);
+  box.innerHTML = `<div class="gl-head"><span class="mini-label" style="margin:0">${items.length - done} to buy${done ? ` · ${done} done` : ''}</span><span style="display:flex;gap:6px">${done ? '<button class="chip" data-gl="cleardone">Clear checked</button>' : ''}${navigator.share ? '<button class="chip" data-gl="share">Share</button>' : ''}</span></div>
+    ${groups.map(([c, g]) => `<div class="gl-cat">${c}</div>${g.map(([x, i]) => `<div class="gl-item ${x.done ? 'done' : ''}"><button class="gl-check" data-gl="toggle" data-i="${i}" aria-label="${x.done ? 'Uncheck' : 'Check off'} ${esc(x.name)}">${x.done ? '✓' : ''}</button><span class="gl-name">${esc(x.name)}</span>${x.qty ? `<span class="gl-qty">${esc(x.qty)}</span>` : ''}<button class="gl-del" data-gl="del" data-i="${i}" aria-label="Remove ${esc(x.name)}">✕</button></div>`).join('')}`).join('')}`;
 }
 
 function planContext() {
@@ -2315,7 +2386,8 @@ COACHING
 - Meal timing (directional priors, refine to the user over time): place more of the day's carbs earlier and around training (before/after a workout), lighter carbs late; on low-recovery or short-sleep days, keep protein high and favor steadier, fiber-rich carbs.
 - Plan the rest of the day around the remaining macros AND the remaining meal count and time of day — e.g. split remaining protein across remaining meals. Prioritize hitting protein; keep sugar under its cap.
 - Recommend specific foods and portions, not categories.
-- ${groceryImg ? "GROCERY LIST: the user's current grocery list photo is attached to their first message. When suggesting meals to make at home, build them from those groceries (plus basic pantry staples like salt, pepper, spices, and a compliant cooking fat) sized to their remaining macros and meal count, with portions. If asked what's on the list, read every item you can make out and flag anything that breaks their restrictions. Restaurant questions are unaffected." : 'No grocery list on file.'}
+- ${groceryImg ? "GROCERY LIST PHOTO: the user's latest grocery list photo is attached to their first message. When suggesting meals to make at home, build them from those groceries (plus basic pantry staples like salt, pepper, spices, and a compliant cooking fat) sized to their remaining macros and meal count, with portions. If asked what's on the photo, read every item you can make out and flag anything that breaks their restrictions. Restaurant questions are unaffected." : 'No grocery list photo on file.'}
+${glistContext()}
 - Whenever you suggest a specific food or meal the user could eat, append one log block per item on its own lines, exactly in this format (valid JSON, numbers only, sugar included):
 <log>{"name":"6oz grilled chicken breast","cal":280,"p":52,"c":0,"s":0,"f":6,"meal":"Meal 2"}</log>
   "meal" must be the name of one of today's remaining meal slots. Do not mention the log blocks or follow-ups in your prose — the app turns them into buttons.`;
@@ -2335,13 +2407,14 @@ function mdLite(s) {
 }
 
 function parseBot(text) {
-  const logs = []; let followups = [], planEdit = null;
+  const logs = []; let followups = [], planEdit = null, glistEdit = null;
   const prose = text
     .replace(/<log>([\s\S]*?)<\/log>/g, (_, j) => { try { logs.push(JSON.parse(j)); } catch {} return ''; })
     .replace(/<followups>([\s\S]*?)<\/followups>/g, (_, j) => { try { followups = JSON.parse(j).filter(x => typeof x === 'string').slice(0, 3); } catch {} return ''; })
     .replace(/<planedit>([\s\S]*?)<\/planedit>/g, (_, j) => { try { const o = JSON.parse(j); const pl = normalizePlan(o.plan); if (pl) planEdit = { summary: String(o.summary || ''), plan: pl }; } catch {} return ''; })
+    .replace(/<grocery>([\s\S]*?)<\/grocery>/g, (_, j) => { try { const o = JSON.parse(j); const l = normalizeGlist(o); glistEdit = { summary: String(o.summary || ''), items: l.items }; } catch {} return ''; })
     .trim();
-  return { prose, logs, followups, planEdit };
+  return { prose, logs, followups, planEdit, glistEdit };
 }
 
 function renderChat() {
@@ -2351,14 +2424,14 @@ function renderChat() {
   } else {
     body.innerHTML = chat.map((m, mi) => {
       if (m.role === 'user') return `<div class="msg user">${esc(m.content).replace(/\n/g, '<br>')}</div>`;
-      const { prose, logs, followups, planEdit } = parseBot(m.content);
+      const { prose, logs, followups, planEdit, glistEdit } = parseBot(m.content);
       const isLast = mi === chat.length - 1 && !chatBusy;
       return `<div class="msg bot">${mdLite(prose)}${logs.map((l, li) => {
         const done = (m.logged || []).includes(li);
         return `<div class="log-card"><div class="fli-main"><div class="fli-name">${esc(l.name)}</div>
           <div class="fli-macros">${r0(n(l.cal))} kcal · P ${r1(n(l.p))} · C ${r1(n(l.c))} · S ${r1(n(l.s))} · F ${r1(n(l.f))}${l.meal ? ' · ' + esc(l.meal) : ''}</div></div>
           <button class="log-btn ${done ? 'done' : ''}" data-log="${mi}:${li}">${done ? '✓ Logged' : '+ Log'}</button></div>`;
-      }).join('')}${planEdit ? planEditCard(planEdit, m, mi) : ''}${isLast && followups.length ? `<div class="fu-row">${followups.map(q => `<button class="chip fu-chip" data-fu="${esc(q)}">${esc(q)}</button>`).join('')}</div>` : ''}</div>`;
+      }).join('')}${planEdit ? planEditCard(planEdit, m, mi) : ''}${glistEdit ? glistEditCard(glistEdit, m, mi) : ''}${isLast && followups.length ? `<div class="fu-row">${followups.map(q => `<button class="chip fu-chip" data-fu="${esc(q)}">${esc(q)}</button>`).join('')}</div>` : ''}</div>`;
     }).join('');
   }
   if (chatBusy) body.innerHTML += `<div class="msg bot thinking">Thinking…</div>`;
@@ -2488,6 +2561,53 @@ $('chatBody').addEventListener('click', e => {
   } else m.planState = 'dismissed';
   saveChat(); renderChat(); if (currentTab === 'train') renderPlan();
 });
+$('chatBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-ge]'); if (!b) return;
+  if (b.dataset.ge === 'open') { showTab('settings'); showSetSection('grocery'); return; }
+  const m = chat[+b.dataset.mi], ge = parseBot(m.content).glistEdit; if (!ge) return;
+  if (b.dataset.ge === 'apply') {
+    m.glBase = glist ? JSON.parse(JSON.stringify(glist)) : null; // what it replaced (diff + Undo)
+    const was = new Map((glist?.items || []).map(x => [glKey(x.name), x.done]));
+    saveGlist({ items: ge.items.map(x => ({ ...x, done: x.done || !!was.get(glKey(x.name)) })) });
+    m.glState = 'applied';
+  } else if (b.dataset.ge === 'undo') { saveGlist(m.glBase); m.glState = 'undone'; }
+  else m.glState = 'dismissed';
+  saveChat(); renderChat();
+});
+$('glistBox').onclick = async e => {
+  const b = e.target.closest('[data-gl]'); if (!b || !glist) return;
+  const items = glist.items.map(x => ({ ...x })), i = +b.dataset.i;
+  if (b.dataset.gl === 'toggle') items[i].done = !items[i].done;
+  else if (b.dataset.gl === 'del') items.splice(i, 1);
+  else if (b.dataset.gl === 'cleardone') return saveGlist({ items: items.filter(x => !x.done) });
+  else if (b.dataset.gl === 'share') {
+    const text = GL_CATS.map(c => [c, items.filter(x => x.cat === c && !x.done)]).filter(([, g]) => g.length).map(([c, g]) => `${c}\n${g.map(x => '• ' + glLine(x)).join('\n')}`).join('\n\n');
+    try { await navigator.share({ title: 'Grocery list', text }); } catch {}
+    return;
+  }
+  saveGlist({ items });
+};
+// Rough aisle guess for typed items; the coach assigns its own
+function guessGlCat(n) {
+  const t = n.toLowerCase(), has = re => re.test(t);
+  if (has(/frozen/)) return 'Frozen';
+  if (has(/chicken|beef|steak|pork|turkey|bison|lamb|salmon|tuna|shrimp|cod|fish|bacon|sausage|jerky|ground/)) return 'Meat & seafood';
+  if (has(/egg|milk|yogurt|cheese|butter|cream|kefir|cottage|ghee/)) return 'Dairy & eggs';
+  if (has(/apple|banana|berr|lettuce|spinach|kale|broccoli|onion|garlic|pepper|tomato|avocado|potato|carrot|cucumber|zucchini|lemon|lime|orange|fruit|veg|greens|mushroom|celery|herb|cilantro|parsley/)) return 'Produce';
+  if (has(/bread|bagel|tortilla|bun|wrap/)) return 'Bakery';
+  if (has(/water|coffee|tea|juice|soda|sparkling|electrolyte|kombucha/)) return 'Drinks';
+  if (has(/rice|oat|pasta|bean|lentil|oil|sauce|spice|salt|flour|nut|seed|honey|syrup|broth|can|protein powder|bar/)) return 'Pantry';
+  return 'Other';
+}
+function addGlistItem() {
+  const v = $('glistInput').value.trim(); if (!v) return;
+  const m = v.match(/^((?:\d+[\d./]*\s*(?:lb|lbs|oz|g|kg|ct|dozen|doz|pack|bag|can|cans|jar|bunch|x)?\.?)\s+)(.+)$/i);
+  const name = m ? m[2] : v;
+  saveGlist({ items: [...(glist?.items || []), { name, qty: m ? m[1].trim() : '', cat: guessGlCat(name), done: false }] });
+  $('glistInput').value = '';
+}
+$('glistAdd').onclick = addGlistItem;
+$('glistInput').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addGlistItem(); } };
 $('chatSend').onclick = () => sendChat($('chatInput').value);
 $('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat($('chatInput').value); } };
 function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
@@ -3418,7 +3538,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-19.5';
+const BUILD = '2026-10-19.6';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
