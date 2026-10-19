@@ -733,6 +733,13 @@ body { background:var(--bg); overflow-x:hidden; }
 .fu-chip { font-size:12px !important; padding:6px 11px !important; border-color:rgba(var(--acc-rgb),.35) !important; color:var(--lime) !important; background:rgba(var(--acc-rgb),.08) !important; }
 .msg.bot { font-size:15px; line-height:1.5; }
 
+.plan-days { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.plan-day { padding:8px 12px; }
+.plan-ex { font-size:13px; color:rgba(255,255,255,.8); line-height:1.75; margin-top:10px; }
+.plan-ex b { color:#fff; font-weight:500; }
+.plan-ex span { color:rgba(255,255,255,.5); font-family:var(--FM); font-size:11px; }
+.plan-links { display:flex; gap:16px; margin-top:12px; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -814,6 +821,9 @@ body { background:var(--bg); overflow-x:hidden; }
   <section class="tab-panel" id="tab-train" data-tab="train">
     <div class="section-label first">Today's call</div>
     <div class="call-card glass" id="trainCall"></div>
+    <div class="section-label">Lifting plan</div>
+    <div class="card" id="planCard"></div>
+    <input type="file" id="planFile" accept="image/*" multiple hidden>
     <div class="section-label">Strain</div>
     <div class="strain-card glass" id="trainStrain"></div>
     <div class="section-label">Lifting</div>
@@ -1386,7 +1396,69 @@ function trainingCall() {
   return { level, why };
 }
 
+/* Lifting plan: the user's program, read from screenshots, kept on this phone */
+let plan = store.get('mt_plan', null);     // { name, savedAt, days:[{ label, exercises:[{ name, sets, reps, notes }] }] }
+let planDraft = null, planOpenDay = null;
+function renderPlan() {
+  const p = planDraft || plan;
+  if (!p) {
+    $('planCard').innerHTML = `<div class="rp-empty">Add your program so the coach plans sessions around it.</div>
+      <div style="margin-top:10px"><button class="mini-link" data-plan="add">Add plan from screenshots</button><span class="ai-status" id="planStatus" style="margin-left:8px"></span></div>`;
+    return;
+  }
+  const day = planOpenDay != null ? p.days[planOpenDay] : null;
+  $('planCard').innerHTML = `${planDraft ? '<div class="ready-label" style="margin-bottom:6px">Check the plan, then save</div>' : ''}
+    <div style="font-size:16px;font-weight:600">${esc(p.name || 'My plan')}</div>
+    <div class="ready-sub">${p.days.length} day${p.days.length === 1 ? '' : 's'} · ${p.days.reduce((a, d) => a + d.exercises.length, 0)} exercises${plan && !planDraft ? ` · saved ${new Date(plan.savedAt).toLocaleDateString(undefined, { month:'short', day:'numeric' })}` : ''}</div>
+    <div class="plan-days">${p.days.map((d, i) => `<button class="chip plan-day ${planOpenDay === i ? 'active' : ''}" data-pday="${i}">${esc(d.label)}</button>`).join('')}</div>
+    ${day ? `<div class="plan-ex">${day.exercises.map(ex => `<b>${esc(ex.name)}</b> <span>${[ex.sets && ex.reps ? `${ex.sets}×${ex.reps}` : ex.sets ? `${ex.sets} sets` : ex.reps ? `${ex.reps} reps` : '', ex.notes].filter(Boolean).map(esc).join(' · ')}</span>`).join('<br>')}</div>` : ''}
+    ${planDraft ? `<div class="call-actions"><button class="btn-secondary" data-plan="cancel">Discard</button><button class="btn-primary" data-plan="save" style="flex:2">Save plan</button></div>`
+      : `<div class="plan-links"><button class="mini-link" data-plan="add">Replace from screenshots</button><button class="mini-link" data-plan="remove">Remove</button></div>`}
+    <div class="ai-status" id="planStatus"></div>`;
+}
+$('planCard').addEventListener('click', e => {
+  const d = e.target.closest('[data-pday]');
+  if (d) { planOpenDay = planOpenDay === +d.dataset.pday ? null : +d.dataset.pday; renderPlan(); return; }
+  const b = e.target.closest('[data-plan]'); if (!b) return;
+  const a = b.dataset.plan;
+  if (a === 'add') return $('planFile').click();
+  if (a === 'cancel') { planDraft = null; planOpenDay = null; }
+  if (a === 'save') { plan = { ...planDraft, savedAt: Date.now() }; store.set('mt_plan', plan); planDraft = null; }
+  if (a === 'remove') { plan = null; store.set('mt_plan', null); planOpenDay = null; }
+  renderPlan();
+});
+$('planFile').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+  const status = (m, c) => { const el = $('planStatus'); if (el) { el.textContent = m; el.className = 'ai-status ' + (c || 'thinking'); } };
+  status('Reading your plan…');
+  try {
+    const imgs = await Promise.all(files.slice(0, 8).map(loadPhoto));
+    const txt = await callClaude({
+      model: CHAT_MODEL, max_tokens: 8000,
+      system: `You read screenshots of a strength-training program (from any app, spreadsheet, notes or a photo of paper). It may span several screenshots. Extract the whole plan: each training day (use the label shown, e.g. "Day 1 – Push", "Upper A", "Monday"), and for each exercise its name, sets, reps (keep ranges like "8-10" as text), and short notes (e.g. RPE, rest, tempo, "superset with…", weight/percent). Keep the program's order. Don't invent exercises or numbers that aren't shown — leave a field empty if it's missing.
+Finish with ONLY this JSON: {"name":"short program name or empty","days":[{"label":"","exercises":[{"name":"","sets":"","reps":"","notes":""}]}]}`,
+      messages: [{ role:'user', content: [...imgs.map(d => ({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:d.split(',')[1] } })), { type:'text', text:'Extract my lifting plan.' }] }],
+      extra: { fallbacks:'default', output_config:{ effort:'medium' } }, beta: 'server-side-fallback-2026-07-01',
+    });
+    const end = txt.lastIndexOf('}'); let j = null;
+    for (let i = txt.indexOf('{'); i >= 0 && i < end && !j; i = txt.indexOf('{', i + 1)) { try { const o = JSON.parse(txt.slice(i, end + 1)); if (Array.isArray(o.days)) j = o; } catch {} }
+    const days = (j?.days || []).map(d => ({ label: String(d.label || '').trim() || 'Day', exercises: (d.exercises || []).filter(x => x && x.name).map(x => ({ name: String(x.name).trim(), sets: String(x.sets ?? '').trim(), reps: String(x.reps ?? '').trim(), notes: String(x.notes ?? '').trim() })) })).filter(d => d.exercises.length);
+    if (!days.length) throw new Error("Couldn't find a lifting plan in those screenshots.");
+    planDraft = { name: (j.name || '').trim(), days }; planOpenDay = 0;
+    renderPlan();
+  } catch (err) { status(err.message, 'err'); }
+};
+
+function planContext() {
+  if (!plan) return 'LIFTING PLAN: none saved.';
+  const liftDates = (whoopWo?.workouts || []).filter(w => actCat(w.sport)[0] === 'lifting').slice(0, 8).map(w => w.date);
+  return `LIFTING PLAN ("${plan.name || 'My plan'}", saved ${new Date(plan.savedAt).toISOString().slice(0, 10)}):
+${plan.days.map(d => `  ${d.label}: ${d.exercises.map(x => `${x.name}${x.sets || x.reps ? ` ${[x.sets, x.reps].filter(Boolean).join('×')}` : ''}${x.notes ? ` (${x.notes})` : ''}`).join('; ')}`).join('\n')}
+- Recent Whoop lifting dates (newest first): ${liftDates.join(', ') || 'none'}. When planning a session, work out which plan day is likely next from the rotation and recent sessions (ask if unclear), then scale volume/intensity to today's readiness — keep the plan's exercises, adjust sets/load, don't invent a different program.`;
+}
+
 function renderTrain(fromSync) {
+  renderPlan();
   // Today's call
   const c = trainingCall();
   const look = { push:['Push it', 'Good day for a hard session or a PR attempt.', 'var(--lime)'], moderate:['Train smart', 'Solid work, but leave a rep or two in the tank.', '#E6EAE2'], recover:['Recover', 'Mobility, zone 2 or a walk — let your body catch up.', 'var(--orange)'] }[c.level] || ['—', '', 'var(--muted)'];
@@ -2127,6 +2199,8 @@ ${labContext()}
 ${bodyContext()}
 
 ${trainingContext()}
+
+${planContext()}
 
 ${engineContext()}
 
@@ -3231,7 +3305,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-19.1';
+const BUILD = '2026-10-19.2';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
