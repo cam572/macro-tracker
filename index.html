@@ -740,6 +740,21 @@ body { background:var(--bg); overflow-x:hidden; }
 .plan-ex span { color:rgba(255,255,255,.5); font-family:var(--FM); font-size:11px; }
 .plan-links { display:flex; gap:16px; margin-top:12px; }
 
+/* Typing: tab bar gets out of the way, Coach fits the visible screen like a messaging app */
+body.kb-open .tabbar { display:none; }
+body.coach-mode { overflow:hidden; }
+body.coach-mode .app-head { display:none; }
+body.coach-mode #tab-coach.active {
+  position:fixed; left:0; right:0; top:var(--vvt, 0px); height:var(--vvh, 100dvh); max-width:520px; margin:0 auto; z-index:5;
+  display:flex; flex-direction:column; min-height:0;
+  padding: max(16px, env(safe-area-inset-top)) 18px calc(104px + env(safe-area-inset-bottom)); }
+body.coach-mode.kb-open #tab-coach.active { padding-top:12px; padding-bottom:10px; }
+body.coach-mode #tab-coach .coach-head { align-items:flex-start; margin-bottom:6px; }
+body.coach-mode #tab-coach .coach-head .page-title { font-size:26px; }
+body.coach-mode #tab-coach .sheet-sub { margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+body.coach-mode #tab-coach .chat-body { min-height:0; }
+body.coach-mode.kb-open .chat-empty { display:none; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -858,7 +873,7 @@ body { background:var(--bg); overflow-x:hidden; }
 
   <!-- ═══════════ COACH ═══════════ -->
   <section class="tab-panel" id="tab-coach" data-tab="coach">
-    <div class="coach-head"><div class="sheet-sub" id="chatSub"></div><button class="clear-btn" id="chatClear">Clear</button></div>
+    <div class="coach-head"><div style="min-width:0"><div class="page-title">Coach</div><div class="sheet-sub" id="chatSub"></div></div><button class="clear-btn" id="chatClear">Clear</button></div>
     <div class="chat-body" id="chatBody"></div>
     <div class="quick-row" id="quickRow"></div>
     <div class="chat-input-row">
@@ -1934,6 +1949,20 @@ $('todayNext').onclick = () => {
 };
 $('todayTiles').onclick = e => { if (e.target.closest('[data-tile]')) showTab('insights'); };
 
+/* ═══════════════════════════════ KEYBOARD / VIEWPORT */
+// iOS doesn't shrink the page for the keyboard — track the *visible* viewport so Coach can sit on top of it.
+function syncViewport() {
+  const vv = window.visualViewport, root = document.documentElement.style;
+  if (vv) { root.setProperty('--vvh', vv.height + 'px'); root.setProperty('--vvt', vv.offsetTop + 'px'); }
+  const kb = (vv && vv.height < window.innerHeight - 120) || document.body.classList.contains('kb-focus');
+  document.body.classList.toggle('kb-open', kb);
+  if (currentTab === 'coach') requestAnimationFrame(() => { $('chatBody').scrollTop = $('chatBody').scrollHeight; if (window.scrollY) window.scrollTo(0, 0); });
+}
+if (window.visualViewport) { visualViewport.addEventListener('resize', syncViewport); visualViewport.addEventListener('scroll', syncViewport); }
+const isTypingField = el => el && el.matches && el.matches('textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=button])');
+document.addEventListener('focusin', e => { if (isTypingField(e.target)) { document.body.classList.add('kb-focus'); syncViewport(); } });
+document.addEventListener('focusout', () => setTimeout(() => { if (!isTypingField(document.activeElement)) { document.body.classList.remove('kb-focus'); syncViewport(); } }, 120));
+
 /* ═══════════════════════════════ TABS */
 let currentTab = 'today', lastMainTab = 'today';
 const TAB_THEME = { today:'', log:'sky', train:'orange', insights:'viola', coach:'giallo', settings:'' };
@@ -1951,6 +1980,8 @@ function showTab(name) {
   $('setupToggle').classList.toggle('close', name === 'settings');
   $('setupToggle').textContent = name === 'settings' ? '✕' : (S.name || 'C').trim().charAt(0).toUpperCase();
   applyTheme();
+  document.body.classList.toggle('coach-mode', name === 'coach');
+  syncViewport();
   if (name === 'settings') { renderSetup(); showSetSection(null); }
   if (name === 'coach') renderChat();
   if (name === 'train') { renderTrain(); syncWhoopWorkouts(); }
@@ -3387,7 +3418,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-19.4';
+const BUILD = '2026-10-19.5';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
