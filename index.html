@@ -823,13 +823,13 @@ body { background:var(--bg); overflow-x:hidden; }
     <div class="call-card glass" id="trainCall"></div>
     <div class="section-label">Lifting plan</div>
     <div class="card" id="planCard"></div>
-    <input type="file" id="planFile" accept="image/*" multiple hidden>
+    <input type="file" id="planFile" accept="image/*,application/pdf,.pdf,.csv,.txt,.md,.json,.xlsx,.xls,.docx" multiple hidden>
     <div class="section-label">Strain</div>
     <div class="strain-card glass" id="trainStrain"></div>
     <div class="section-label">Lifting</div>
     <div class="card" id="liftTrends"></div>
     <div class="lift-form glass hidden" id="liftForm"></div>
-    <input type="file" id="liftShot" accept="image/*" multiple hidden>
+    <input type="file" id="liftShot" accept="image/*,application/pdf,.pdf,.csv,.txt,.md,.json,.xlsx,.xls,.docx" multiple hidden>
     <div class="section-label">Activity history · from Whoop</div>
     <div class="card" id="liftHistory"></div>
   </section>
@@ -1396,14 +1396,43 @@ function trainingCall() {
   return { level, why };
 }
 
-/* Lifting plan: the user's program, read from screenshots, kept on this phone */
+/* File → Claude content blocks: photos, PDFs, spreadsheets, Word docs and text files */
+const loadScript = (src) => new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const sc = document.createElement('script'); sc.src = src; sc.onload = res; sc.onerror = () => rej(new Error("Couldn't load a file reader — check your connection.")); document.head.appendChild(sc); });
+const readAs = (f, how) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r[how](f); });
+const MAX_TEXT = 120000;
+async function filesToBlocks(files) {
+  const blocks = [];
+  for (const f of files.slice(0, 8)) {
+    const name = f.name || 'file', ext = (name.split('.').pop() || '').toLowerCase();
+    if ((f.type || '').startsWith('image/') || ['jpg','jpeg','png','heic','webp','gif'].includes(ext)) {
+      const d = await loadPhoto(f); blocks.push({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:d.split(',')[1] } });
+    } else if (f.type === 'application/pdf' || ext === 'pdf') {
+      if (f.size > 20e6) throw new Error(`${name} is too large (max ~20 MB).`);
+      const d = await readAs(f, 'readAsDataURL'); blocks.push({ type:'document', source:{ type:'base64', media_type:'application/pdf', data:String(d).split(',')[1] } });
+    } else if (['xlsx','xls','xlsm','ods'].includes(ext)) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+      const wb = window.XLSX.read(await readAs(f, 'readAsArrayBuffer'), { type:'array' });
+      const csv = wb.SheetNames.map(n => `--- Sheet: ${n} ---\n${window.XLSX.utils.sheet_to_csv(wb.Sheets[n], { blankrows:false })}`).join('\n\n');
+      blocks.push({ type:'text', text:`File "${name}" (spreadsheet, as CSV):\n${csv.slice(0, MAX_TEXT)}` });
+    } else if (ext === 'docx') {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.13.0/mammoth.browser.min.js');
+      const out = await window.mammoth.extractRawText({ arrayBuffer: await readAs(f, 'readAsArrayBuffer') });
+      blocks.push({ type:'text', text:`File "${name}" (Word document):\n${out.value.slice(0, MAX_TEXT)}` });
+    } else if (['csv','txt','md','json','tsv'].includes(ext) || (f.type || '').startsWith('text/')) {
+      blocks.push({ type:'text', text:`File "${name}":\n${String(await readAs(f, 'readAsText')).slice(0, MAX_TEXT)}` });
+    } else throw new Error(`${name}: that file type isn't supported. Use a photo, PDF, spreadsheet, Word doc or text file.`);
+  }
+  return blocks;
+}
+
+/* Lifting plan: the user's program, read from screenshots or files, kept on this phone */
 let plan = store.get('mt_plan', null);     // { name, savedAt, days:[{ label, exercises:[{ name, sets, reps, notes }] }] }
 let planDraft = null, planOpenDay = null;
 function renderPlan() {
   const p = planDraft || plan;
   if (!p) {
     $('planCard').innerHTML = `<div class="rp-empty">Add your program so the coach plans sessions around it.</div>
-      <div style="margin-top:10px"><button class="mini-link" data-plan="add">Add plan from screenshots</button><span class="ai-status" id="planStatus" style="margin-left:8px"></span></div>`;
+      <div style="margin-top:10px"><button class="mini-link" data-plan="add">Add plan from screenshots or files</button><span class="ai-status" id="planStatus" style="margin-left:8px"></span></div>`;
     return;
   }
   const day = planOpenDay != null ? p.days[planOpenDay] : null;
@@ -1413,7 +1442,7 @@ function renderPlan() {
     <div class="plan-days">${p.days.map((d, i) => `<button class="chip plan-day ${planOpenDay === i ? 'active' : ''}" data-pday="${i}">${esc(d.label)}</button>`).join('')}</div>
     ${day ? `<div class="plan-ex">${day.exercises.map(ex => `<b>${esc(ex.name)}</b> <span>${[ex.sets && ex.reps ? `${ex.sets}×${ex.reps}` : ex.sets ? `${ex.sets} sets` : ex.reps ? `${ex.reps} reps` : '', ex.notes].filter(Boolean).map(esc).join(' · ')}</span>`).join('<br>')}</div>` : ''}
     ${planDraft ? `<div class="call-actions"><button class="btn-secondary" data-plan="cancel">Discard</button><button class="btn-primary" data-plan="save" style="flex:2">Save plan</button></div>`
-      : `<div class="plan-links"><button class="mini-link" data-plan="add">Replace from screenshots</button><button class="mini-link" data-plan="remove">Remove</button></div>`}
+      : `<div class="plan-links"><button class="mini-link" data-plan="add">Replace from screenshots or files</button><button class="mini-link" data-plan="remove">Remove</button></div>`}
     <div class="ai-status" id="planStatus"></div>`;
 }
 $('planCard').addEventListener('click', e => {
@@ -1430,20 +1459,20 @@ $('planCard').addEventListener('click', e => {
 $('planFile').onchange = async e => {
   const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
   const status = (m, c) => { const el = $('planStatus'); if (el) { el.textContent = m; el.className = 'ai-status ' + (c || 'thinking'); } };
-  status('Reading your plan…');
+  status(`Reading ${files.length} file${files.length === 1 ? '' : 's'}…`);
   try {
-    const imgs = await Promise.all(files.slice(0, 8).map(loadPhoto));
+    const blocks = await filesToBlocks(files);
     const txt = await callClaude({
       model: CHAT_MODEL, max_tokens: 8000,
-      system: `You read screenshots of a strength-training program (from any app, spreadsheet, notes or a photo of paper). It may span several screenshots. Extract the whole plan: each training day (use the label shown, e.g. "Day 1 – Push", "Upper A", "Monday"), and for each exercise its name, sets, reps (keep ranges like "8-10" as text), and short notes (e.g. RPE, rest, tempo, "superset with…", weight/percent). Keep the program's order. Don't invent exercises or numbers that aren't shown — leave a field empty if it's missing.
+      system: `You read a strength-training program from screenshots, photos, PDFs, spreadsheets (given as CSV), Word documents or text files. It may span several files or sheets — combine them into one plan. Extract the whole plan: each training day (use the label shown, e.g. "Day 1 – Push", "Upper A", "Monday"), and for each exercise its name, sets, reps (keep ranges like "8-10" as text), and short notes (e.g. RPE, rest, tempo, "superset with…", weight/percent). Keep the program's order. Don't invent exercises or numbers that aren't shown — leave a field empty if it's missing.
 Finish with ONLY this JSON: {"name":"short program name or empty","days":[{"label":"","exercises":[{"name":"","sets":"","reps":"","notes":""}]}]}`,
-      messages: [{ role:'user', content: [...imgs.map(d => ({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:d.split(',')[1] } })), { type:'text', text:'Extract my lifting plan.' }] }],
+      messages: [{ role:'user', content: [...blocks, { type:'text', text:'Extract my lifting plan.' }] }],
       extra: { fallbacks:'default', output_config:{ effort:'medium' } }, beta: 'server-side-fallback-2026-07-01',
     });
     const end = txt.lastIndexOf('}'); let j = null;
     for (let i = txt.indexOf('{'); i >= 0 && i < end && !j; i = txt.indexOf('{', i + 1)) { try { const o = JSON.parse(txt.slice(i, end + 1)); if (Array.isArray(o.days)) j = o; } catch {} }
     const days = (j?.days || []).map(d => ({ label: String(d.label || '').trim() || 'Day', exercises: (d.exercises || []).filter(x => x && x.name).map(x => ({ name: String(x.name).trim(), sets: String(x.sets ?? '').trim(), reps: String(x.reps ?? '').trim(), notes: String(x.notes ?? '').trim() })) })).filter(d => d.exercises.length);
-    if (!days.length) throw new Error("Couldn't find a lifting plan in those screenshots.");
+    if (!days.length) throw new Error("Couldn't find a lifting plan in those files.");
     planDraft = { name: (j.name || '').trim(), days }; planOpenDay = 0;
     renderPlan();
   } catch (err) { status(err.message, 'err'); }
@@ -1567,7 +1596,7 @@ function liftingOverview() {
 function renderTrends() {
   const hist = exerciseHistory().filter(x => x.points.some(p => p.best > 0)).sort((a, b) => b.points.length - a.points.length || a.name.localeCompare(b.name));
   const overview = liftingOverview();
-  const importLink = `<div style="margin-top:12px"><button class="mini-link" data-shot="">Import sets from a Whoop screenshot</button><span class="ai-status" id="shotStatus" style="margin-left:8px"></span></div>`;
+  const importLink = `<div style="margin-top:12px"><button class="mini-link" data-shot="">Import sets from a screenshot or file</button><span class="ai-status" id="shotStatus" style="margin-left:8px"></span></div>`;
   if (!hist.length) { $('liftTrends').innerHTML = (overview || `<div class="rp-empty">${whoopConnected ? 'No Whoop lifting sessions yet — log them in Whoop and they show up here.' : 'Connect Whoop in Settings to see your lifting.'}</div>`) + importLink; return; }
   $('liftTrends').innerHTML = overview + '<div class="ready-label" style="margin:14px 0 2px">Strength by exercise</div>' + hist.slice(0, 12).map(x => {
     const pts = x.points.filter(p => p.best > 0), last = pts[pts.length - 1], first = pts[0];
@@ -1690,7 +1719,7 @@ function actRow(x) {
     <div class="act-body">
       <div>${w.kcal ? `${w.kcal} kcal` : ''}${w.avgHr ? ` · avg HR ${w.avgHr}` : ''}${w.maxHr ? ` · max ${w.maxHr}` : ''}${w.altGainM ? ` · ${Math.round(w.altGainM * 3.281)} ft climb` : ''}</div>
       ${zones}
-      ${l ? liftDetail(l) : isLift ? `<div style="margin-top:6px"><button class="mini-link" data-act="shot">Import sets from a Whoop screenshot</button></div>` : ''}
+      ${l ? liftDetail(l) : isLift ? `<div style="margin-top:6px"><button class="mini-link" data-act="shot">Import sets from a screenshot or file</button></div>` : ''}
     </div></div>`;
 }
 function liftDetail(l) {
@@ -1707,19 +1736,19 @@ $('liftTrends').addEventListener('click', e => {
 $('liftShot').onchange = async e => {
   const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
   const status = msg => { const el = $('shotStatus'); if (el) { el.textContent = msg; el.className = 'ai-status thinking'; } };
-  status('Reading screenshot…');
+  status(`Reading ${files.length} file${files.length === 1 ? '' : 's'}…`);
   try {
-    const imgs = await Promise.all(files.slice(0, 4).map(loadPhoto));
+    const blocks = await filesToBlocks(files);
     const txt = await callClaude({
       model: CHAT_MODEL, max_tokens: 6000,
-      system: `You read screenshots of a WHOOP Strength Trainer workout (one workout, possibly across several screenshots). Extract every exercise in order with each set's reps and weight exactly as shown. Weight unit: "lb" or "kg" as displayed; bodyweight sets use weight 0. Ignore heart-rate charts and strain graphics. Use the workout date shown (YYYY-MM-DD) or empty if not visible.
+      system: `You read one completed strength workout from screenshots (e.g. WHOOP Strength Trainer), photos, PDFs, spreadsheets (as CSV), Word documents or text files (possibly several). Extract every exercise in order with each set's reps and weight exactly as shown. Weight unit: "lb" or "kg" as displayed; bodyweight sets use weight 0. Ignore heart-rate charts and strain graphics. Use the workout date shown (YYYY-MM-DD) or empty if not visible.
 Finish with ONLY this JSON: {"date":"","name":"short session name or empty","exercises":[{"name":"","sets":[{"reps":0,"weight":0,"unit":"lb"}]}]}`,
-      messages: [{ role:'user', content: [...imgs.map(d => ({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:d.split(',')[1] } })), { type:'text', text:'Extract this workout.' }] }],
+      messages: [{ role:'user', content: [...blocks, { type:'text', text:'Extract this workout.' }] }],
       extra: { fallbacks:'default', output_config:{ effort:'medium' } }, beta: 'server-side-fallback-2026-07-01',
     });
     const end = txt.lastIndexOf('}'); let j = null;
     for (let i = txt.indexOf('{'); i >= 0 && i < end && !j; i = txt.indexOf('{', i + 1)) { try { const o = JSON.parse(txt.slice(i, end + 1)); if (Array.isArray(o.exercises)) j = o; } catch {} }
-    if (!j || !j.exercises.length) throw new Error("Couldn't find any exercises in that screenshot.");
+    if (!j || !j.exercises.length) throw new Error("Couldn't find any exercises in that file.");
     // Attach to the chosen Whoop session, else the Whoop lifting session on the screenshot's date, else the latest unlinked one
     const liftWo = (whoopWo?.workouts || []).filter(w => actCat(w.sport)[0] === 'lifting');
     const taken = new Set(lifts.filter(l => l.whoopId).map(l => l.whoopId));
@@ -3305,7 +3334,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-19.2';
+const BUILD = '2026-10-19.3';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
