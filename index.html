@@ -729,6 +729,10 @@ body { background:var(--bg); overflow-x:hidden; }
 .body-sub, .body-big small { font-family:var(--FB) !important; letter-spacing:0; }
 .body-sub { font-size:12px; }
 
+.fu-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.fu-chip { font-size:12px !important; padding:6px 11px !important; border-color:rgba(var(--acc-rgb),.35) !important; color:var(--lime) !important; background:rgba(var(--acc-rgb),.08) !important; }
+.msg.bot { font-size:15px; line-height:1.5; }
+
 /* Floating glass tab bar */
 .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(18px, env(safe-area-inset-bottom)); z-index:50;
   width:calc(100% - 32px); max-width:488px; height:68px; border-radius:34px; display:flex; align-items:center; justify-content:space-around; padding:0 8px;
@@ -2088,7 +2092,14 @@ function buildSystem() {
   const rem = k => r0(T[k] - t[k]);
   const weekPlan = DAYS.map((d, i) => `${d.slice(0,3)}: ${S.schedule[i].count === 0 ? 'fasting' : S.schedule[i].count + ' meals'}`).join(', ');
 
-  return `You are a sharp, supportive nutrition coach inside ${S.name ? S.name + "'s" : 'the user\'s'} macro tracker. Be concise and practical — short paragraphs or tight bullet lists, no fluff.
+  return `You are a sharp, supportive nutrition coach inside ${S.name ? S.name + "'s" : 'the user\'s'} macro tracker.
+
+REPLY FORMAT (strict — the user reads this on a phone):
+- Lead with the answer. Keep it to 2–4 short sentences OR at most 3 one-line bullets (≈60 words max). No headers, no preamble, no recap of their numbers unless it's the point.
+- Give one clear recommendation, not a menu of options. Save detail, reasoning and alternatives for follow-ups.
+- Only go longer when the user explicitly asks for detail (e.g. "explain", "full plan", "more detail"), and even then stay tight.
+- End every reply with 2–3 short follow-up questions the user might tap next, written in the user's voice (≤6 words each), on the last line exactly like:
+<followups>["Why that meal?","Swap ideas","Plan rest of my day"]</followups>
 
 USER
 - Name: ${S.name || 'unknown'}
@@ -2133,7 +2144,7 @@ COACHING
 - ${groceryImg ? "GROCERY LIST: the user's current grocery list photo is attached to their first message. When suggesting meals to make at home, build them from those groceries (plus basic pantry staples like salt, pepper, spices, and a compliant cooking fat) sized to their remaining macros and meal count, with portions. If asked what's on the list, read every item you can make out and flag anything that breaks their restrictions. Restaurant questions are unaffected." : 'No grocery list on file.'}
 - Whenever you suggest a specific food or meal the user could eat, append one log block per item on its own lines, exactly in this format (valid JSON, numbers only, sugar included):
 <log>{"name":"6oz grilled chicken breast","cal":280,"p":52,"c":0,"s":0,"f":6,"meal":"Meal 2"}</log>
-  "meal" must be the name of one of today's remaining meal slots. Do not mention the log blocks in your prose — the app turns them into one-tap log buttons.`;
+  "meal" must be the name of one of today's remaining meal slots. Do not mention the log blocks or follow-ups in your prose — the app turns them into buttons.`;
 }
 
 function mdLite(s) {
@@ -2150,9 +2161,12 @@ function mdLite(s) {
 }
 
 function parseBot(text) {
-  const logs = [];
-  const prose = text.replace(/<log>([\s\S]*?)<\/log>/g, (_, j) => { try { logs.push(JSON.parse(j)); } catch {} return ''; }).trim();
-  return { prose, logs };
+  const logs = []; let followups = [];
+  const prose = text
+    .replace(/<log>([\s\S]*?)<\/log>/g, (_, j) => { try { logs.push(JSON.parse(j)); } catch {} return ''; })
+    .replace(/<followups>([\s\S]*?)<\/followups>/g, (_, j) => { try { followups = JSON.parse(j).filter(x => typeof x === 'string').slice(0, 3); } catch {} return ''; })
+    .trim();
+  return { prose, logs, followups };
 }
 
 function renderChat() {
@@ -2162,13 +2176,14 @@ function renderChat() {
   } else {
     body.innerHTML = chat.map((m, mi) => {
       if (m.role === 'user') return `<div class="msg user">${esc(m.content).replace(/\n/g, '<br>')}</div>`;
-      const { prose, logs } = parseBot(m.content);
+      const { prose, logs, followups } = parseBot(m.content);
+      const isLast = mi === chat.length - 1 && !chatBusy;
       return `<div class="msg bot">${mdLite(prose)}${logs.map((l, li) => {
         const done = (m.logged || []).includes(li);
         return `<div class="log-card"><div class="fli-main"><div class="fli-name">${esc(l.name)}</div>
           <div class="fli-macros">${r0(n(l.cal))} kcal · P ${r1(n(l.p))} · C ${r1(n(l.c))} · S ${r1(n(l.s))} · F ${r1(n(l.f))}${l.meal ? ' · ' + esc(l.meal) : ''}</div></div>
           <button class="log-btn ${done ? 'done' : ''}" data-log="${mi}:${li}">${done ? '✓ Logged' : '+ Log'}</button></div>`;
-      }).join('')}</div>`;
+      }).join('')}${isLast && followups.length ? `<div class="fu-row">${followups.map(q => `<button class="chip fu-chip" data-fu="${esc(q)}">${esc(q)}</button>`).join('')}</div>` : ''}</div>`;
     }).join('');
   }
   if (chatBusy) body.innerHTML += `<div class="msg bot thinking">Thinking…</div>`;
@@ -2181,6 +2196,7 @@ function renderChat() {
     ? ['How do I get through the hunger?', 'Electrolytes for today?', 'Plan my break-fast meal for tomorrow']
     : [...(whoopConnected ? ['Should I lift today?'] : []), 'What should I eat next?', 'Plan my remaining meals', "I'm at a restaurant — what should I order?", 'High-protein snack that fits?'];
   $('quickRow').innerHTML = quick.map(q => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('');
+  $('quickRow').classList.toggle('hidden', chat.length > 0); // follow-up chips take over once a conversation starts
 }
 
 let groceryImg = null; // data URL of the saved grocery list photo
@@ -2284,6 +2300,7 @@ $('chatBody').onclick = e => {
   renderChat();
 };
 $('quickRow').onclick = e => { const b = e.target.closest('[data-q]'); if (b) sendChat(b.dataset.q); };
+$('chatBody').addEventListener('click', e => { const f = e.target.closest('[data-fu]'); if (f) sendChat(f.dataset.fu); });
 $('chatSend').onclick = () => sendChat($('chatInput').value);
 $('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat($('chatInput').value); } };
 function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
@@ -3214,7 +3231,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-18.14';
+const BUILD = '2026-10-19.1';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();
