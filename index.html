@@ -531,6 +531,18 @@ body { background:var(--bg); overflow-x:hidden; }
 #tab-coach .chat-input-row { padding:0; border-top:none; gap:8px; }
 #tab-coach .chat-input-row textarea { background:rgba(255,255,255,.06) !important; }
 .clear-btn { background:rgba(255,255,255,.06); border:1px solid var(--border); color:rgba(255,255,255,.7); border-radius:12px; padding:7px 12px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-family:var(--FB); cursor:pointer; }
+.mic-btn { width:48px; flex-shrink:0; border-radius:16px; background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--lime); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.voice-bar { display:flex; align-items:center; gap:14px; padding:10px 12px; border-radius:20px; background:rgba(var(--acc-rgb),.07); border:1px solid rgba(var(--acc-rgb),.25); }
+.voice-orb { position:relative; width:58px; height:58px; flex-shrink:0; border-radius:50%; border:none; cursor:pointer; color:var(--ink); background:linear-gradient(135deg, var(--acc1), var(--acc2)); display:flex; align-items:center; justify-content:center; }
+.voice-orb svg { position:relative; }
+.vo-ring { position:absolute; inset:0; border-radius:50%; background:rgba(var(--acc-rgb),.35); transform:scale(var(--lv, 1)); transition:transform .08s linear; }
+.voice-bar.busy .voice-orb { opacity:.55; }
+.voice-bar.busy .vo-ring { animation:voPulse 1.4s ease-in-out infinite; }
+.voice-bar.speaking .vo-ring { animation:voPulse .9s ease-in-out infinite; }
+@keyframes voPulse { 0%,100% { transform:scale(1); opacity:.5; } 50% { transform:scale(1.22); opacity:.15; } }
+.voice-txt { flex:1; min-width:0; }
+.voice-state { font-size:16px; font-weight:600; }
+.voice-hint { font-size:12px; color:rgba(255,255,255,.55); margin-top:2px; }
 
 /* Train tab */
 .call-card { padding:18px; }
@@ -887,8 +899,14 @@ body.coach-mode.kb-open .chat-empty { display:none; }
     <div class="coach-head"><div style="min-width:0"><div class="page-title">Coach</div><div class="sheet-sub" id="chatSub"></div></div><button class="clear-btn" id="chatClear">Clear</button></div>
     <div class="chat-body" id="chatBody"></div>
     <div class="quick-row" id="quickRow"></div>
-    <div class="chat-input-row">
+    <div class="voice-bar hidden" id="voiceBar">
+      <button class="voice-orb" id="voiceOrb" aria-label="Talk"><span class="vo-ring" id="voiceRing"></span><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <div class="voice-txt"><div class="voice-state" id="voiceState">Listening…</div><div class="voice-hint" id="voiceHint">Tap the circle when you're done</div></div>
+      <button class="clear-btn" id="voiceEnd">End</button>
+    </div>
+    <div class="chat-input-row" id="chatRow">
       <textarea class="input-field" id="chatInput" rows="1" placeholder="What should I eat next?"></textarea>
+      <button class="mic-btn" id="chatMic" aria-label="Talk to coach"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
       <button class="send-btn" id="chatSend">↑</button>
     </div>
   </section>
@@ -2040,6 +2058,7 @@ const TAB_THEME = { today:'', log:'sky', train:'orange', insights:'viola', coach
 function applyTheme() { document.body.dataset.theme = TAB_THEME[currentTab] || ''; }
 const TAB_TITLES = { train:['Train', 'Strain, lifting and strength'], log:['Log', ''], insights:['Insights', 'Recovery, glucose, body and trends'], coach:['Coach', ''], settings:['Settings', 'Profile, schedule, connections and labs'] };
 function showTab(name) {
+  if (name !== 'coach' && typeof talk !== 'undefined' && talk.on) stopTalk();
   currentTab = name;
   if (name !== 'settings') lastMainTab = name;
   document.querySelectorAll('.tab-panel').forEach(p => {
@@ -2471,7 +2490,7 @@ const saveChat = () => store.set('mt_chat', chat.map(({ img, imgs, hadImage, img
 
 async function sendChat(text, imgs) {
   text = (text || '').trim();
-  if (!text || chatBusy) return;
+  if (!text || chatBusy) return false;
   chat.push(imgs?.length ? { role:'user', content:text, imgs } : { role:'user', content:text });
   $('chatInput').value = ''; autoGrow();
   chatBusy = true; $('chatSend').disabled = true; renderChat();
@@ -2483,18 +2502,19 @@ async function sendChat(text, imgs) {
       const first = history[0].content;
       history[0].content = [imgBlock(groceryImg), { type:'text', text:'[My current grocery list photo]' }, ...(Array.isArray(first) ? first : [{ type:'text', text:first }])];
     }
-    const reply = await callClaude({ model:CHAT_MODEL, max_tokens:16000, system:buildSystem(), messages:history, extra:{ fallbacks:'default' }, beta:'server-side-fallback-2026-07-01' });
+    const reply = await callClaude({ model:CHAT_MODEL, max_tokens:16000, system:buildSystem() + (talk.on ? VOICE_RULE : ''), messages:history, extra:{ fallbacks:'default' }, beta:'server-side-fallback-2026-07-01' });
     chat.push({ role:'assistant', content: reply || '…', logged:[] });
   } catch (err) {
     chat.pop();
     chatBusy = false; $('chatSend').disabled = false; renderChat();
     $('chatBody').innerHTML += `<div class="msg bot err">${esc(err.message)}</div>`;
     $('chatInput').value = text;
-    return;
+    return false;
   }
   chatBusy = false; $('chatSend').disabled = false;
   saveChat();
   renderChat();
+  return true;
 }
 
 // Downscale on-device so uploads stay small and fast
@@ -2613,6 +2633,168 @@ $('chatInput').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.prev
 function autoGrow() { const t = $('chatInput'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }
 $('chatInput').oninput = autoGrow;
 $('chatClear').onclick = () => { chat = []; saveChat(); renderChat(); };
+
+/* ═══════════════════════════════ TALK MODE (voice chat) */
+// Tap mic → record → stop on a pause → Worker transcribes → coach replies → iPhone voice reads it → listen again.
+// Audio goes only to the user's own Worker and is never stored; the reply voice is on-device (speechSynthesis).
+const VOICE_RULE = `
+
+VOICE MODE: the user is talking to you out loud and your reply will be read aloud by a phone voice. Answer in 1–3 short spoken sentences (≈40 words max), no bullets, tables, headings, emoji or symbols like "~" or "/" — write numbers the way you'd say them ("about 40 grams of protein"). Still include <log>, <planedit>, <grocery> and <followups> blocks exactly as usual when they apply; they are shown on screen, not read.`;
+const talk = { on:false, phase:'idle', stream:null, rec:null, ctx:null, raf:0, chunks:[], cancel:false };
+
+function setTalk(phase, state, hint) {
+  talk.phase = phase;
+  $('voiceBar').className = 'voice-bar' + (phase === 'busy' ? ' busy' : phase === 'speaking' ? ' speaking' : '');
+  $('voiceState').textContent = state; $('voiceHint').textContent = hint || '';
+  if (phase !== 'listening') $('voiceRing').style.setProperty('--lv', 1);
+}
+
+let ttsVoice = null;
+function pickVoice() {
+  const vs = (speechSynthesis.getVoices() || []).filter(v => /^en[-_]/i.test(v.lang));
+  if (!vs.length) return null;
+  const score = v => (/premium/i.test(v.name) ? 40 : /enhanced/i.test(v.name) ? 30 : 0) + (/en[-_]US/i.test(v.lang) ? 10 : 0)
+    + (/^(Ava|Zoe|Evan|Nathan|Samantha|Allison|Tom|Alex)\b/i.test(v.name) ? 5 : 0) + (v.localService ? 1 : 0)
+    - (/(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Grandma|Grandpa|Eddy|Flo|Reed|Rocko|Sandy|Shelley)/i.test(v.name) ? 100 : 0);
+  return vs.sort((a, b) => score(b) - score(a))[0];
+}
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => { ttsVoice = pickVoice(); };
+
+// What gets read aloud: the reply prose without markdown, plus a nudge if there's a card to tap
+function spokenText(content) {
+  const { prose, logs, planEdit, glistEdit } = parseBot(content);
+  let t = prose.replace(/\*\*|__|`|#+\s*/g, '').replace(/^\s*(?:[-•*]|\d+\.)\s+/gm, '').replace(/\s*\n+\s*/g, '. ')
+    .replace(/(\d)\s*g\b/g, '$1 grams').replace(/\bkcal\b/gi, 'calories').replace(/~\s*/g, 'about ').replace(/\s*\/\s*/g, ' or ').replace(/\.\s*\./g, '.');
+  if (logs.length) t += logs.length > 1 ? ' Tap log on the ones you want saved.' : ' Tap log to save it.';
+  if (planEdit) t += ' Tap apply if you want the plan change.';
+  if (glistEdit) t += ' Tap apply to update your grocery list.';
+  return t.trim();
+}
+function speak(text) {
+  return new Promise(resolve => {
+    if (!('speechSynthesis' in window) || !text) return resolve();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    ttsVoice ||= pickVoice();
+    if (ttsVoice) { u.voice = ttsVoice; u.lang = ttsVoice.lang; }
+    u.rate = 1.04;
+    // iOS sometimes never fires onend — fall back to a length-based timer
+    const guard = setTimeout(resolve, 4000 + text.length * 90);
+    u.onend = u.onerror = () => { clearTimeout(guard); resolve(); };
+    speechSynthesis.speak(u);
+  });
+}
+
+function releaseMic() {
+  clearTimeout(talk.raf);
+  talk.stream?.getTracks().forEach(t => t.stop()); // frees the iPhone audio session so the reply plays at full volume
+  talk.stream = null;
+}
+
+async function listen() {
+  if (!talk.on) return;
+  setTalk('listening', 'Listening…', "Tap the circle when you're done");
+  try {
+    talk.stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+  } catch {
+    stopTalk(); showVoiceError('Microphone access is off. On iPhone: Settings → Safari → Microphone → Allow, then try again.'); return;
+  }
+  if (!talk.on) { releaseMic(); return; }
+  const type = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(t => window.MediaRecorder?.isTypeSupported?.(t)) || '';
+  talk.chunks = []; talk.cancel = false;
+  talk.rec = new MediaRecorder(talk.stream, type ? { mimeType:type } : undefined);
+  talk.rec.ondataavailable = e => e.data.size && talk.chunks.push(e.data);
+  talk.rec.onstop = () => onRecorded(type || talk.rec.mimeType);
+  talk.rec.start(250);
+
+  // Level meter + end-of-speech detection: wait for speech, then stop after ~1.4s of quiet
+  const ctx = talk.ctx; await ctx.resume().catch(() => {});
+  const an = ctx.createAnalyser(); an.fftSize = 1024;
+  ctx.createMediaStreamSource(talk.stream).connect(an);
+  const buf = new Float32Array(an.fftSize), t0 = performance.now();
+  let floor = 0.01, spoke = false, loudMs = 0, quietSince = 0, last = t0;
+  const tick = () => {
+    const now = performance.now();
+    if (talk.phase !== 'listening' || talk.rec?.state !== 'recording') return;
+    an.getFloatTimeDomainData(buf);
+    let sum = 0; for (const v of buf) sum += v * v;
+    const rms = Math.sqrt(sum / buf.length), dt = now - last; last = now;
+    if (now - t0 < 350) floor = Math.max(floor, Math.min(rms, 0.03)); // ambient noise; capped so talking right away isn't mistaken for it
+    const th = Math.max(0.018, floor * 2.6);
+    $('voiceRing').style.setProperty('--lv', (1 + Math.min(0.6, rms * 6)).toFixed(3));
+    if (rms > th) { loudMs += dt; quietSince = 0; if (loudMs > 160) spoke = true; }
+    else { loudMs = Math.max(0, loudMs - dt / 2); quietSince ||= now; }
+    if (spoke && quietSince && now - quietSince > 1400) return finishListening();
+    if (!spoke && now - t0 > 9000) { talk.cancel = true; return finishListening('Didn’t hear anything — tap the circle to talk.'); }
+    if (now - t0 > 60000) return finishListening();
+    talk.raf = setTimeout(tick, 50);
+  };
+  talk.raf = setTimeout(tick, 50);
+}
+
+let pausedNote = '';
+function finishListening(note) {
+  pausedNote = note || '';
+  if (talk.rec?.state === 'recording') talk.rec.stop(); // → onRecorded
+}
+
+async function onRecorded(type) {
+  releaseMic();
+  if (!talk.on) return;
+  if (talk.cancel) { setTalk('paused', 'Paused', pausedNote || 'Tap the circle to talk'); return; }
+  const blob = new Blob(talk.chunks, { type:(type || 'audio/mp4').split(';')[0] });
+  setTalk('busy', 'Got it…', 'Turning your voice into text');
+  let text = '';
+  try {
+    text = (await server('/voice/transcribe', { method:'POST', headers:{ 'Content-Type':blob.type }, body:blob })).text || '';
+  } catch (err) { setTalk('paused', 'Couldn’t hear that', err.message + ' Tap the circle to try again.'); return; }
+  if (!talk.on) return;
+  if (!text.replace(/[^a-z0-9]/gi, '')) { setTalk('paused', 'Didn’t catch that', 'Tap the circle to try again'); return; }
+  setTalk('busy', 'Thinking…', '“' + (text.length > 60 ? text.slice(0, 57) + '…' : text) + '”');
+  const ok = await sendChat(text);
+  if (!talk.on) return;
+  if (!ok) { setTalk('paused', 'The coach couldn’t answer', 'Tap the circle to try again'); return; }
+  setTalk('speaking', 'Speaking…', 'Tap the circle to interrupt');
+  await speak(spokenText(chat[chat.length - 1].content));
+  if (talk.on && talk.phase === 'speaking') listen();
+}
+
+function startTalk() {
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { showVoiceError('This browser can’t record audio.'); return; }
+  if (!conn.key) { showVoiceError('Voice needs the coach server — add it in Settings → Connections.'); return; }
+  if (!S.apiKey) { showVoiceError('Add your Anthropic API key in Settings first.'); return; }
+  talk.on = true;
+  // iOS only allows audio that starts from a tap: unlock the audio context and the speech voice now
+  talk.ctx ||= new (window.AudioContext || window.webkitAudioContext)();
+  talk.ctx.resume().catch(() => {});
+  if ('speechSynthesis' in window) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); ttsVoice ||= pickVoice(); }
+  $('voiceBar').classList.remove('hidden'); $('chatRow').classList.add('hidden'); $('quickRow').classList.add('hidden');
+  document.activeElement?.blur?.();
+  listen();
+}
+function stopTalk() {
+  talk.on = false; talk.cancel = true;
+  if (talk.rec?.state === 'recording') talk.rec.stop();
+  releaseMic();
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  talk.phase = 'idle';
+  $('voiceBar').classList.add('hidden'); $('chatRow').classList.remove('hidden');
+  $('quickRow').classList.toggle('hidden', chat.length > 0);
+}
+function showVoiceError(msg) {
+  renderChat();
+  $('chatBody').innerHTML += `<div class="msg bot err">${esc(msg)}</div>`;
+  $('chatBody').scrollTop = $('chatBody').scrollHeight;
+}
+
+$('chatMic').onclick = startTalk;
+$('voiceEnd').onclick = stopTalk;
+$('voiceOrb').onclick = () => {
+  if (talk.phase === 'listening') finishListening();                        // done talking — send now
+  else if (talk.phase === 'speaking') { speechSynthesis.cancel(); talk.phase = 'interrupt'; listen(); } // cut in
+  else if (talk.phase === 'paused') listen();
+};
+document.addEventListener('visibilitychange', () => { if (document.hidden && talk.on) stopTalk(); });
 
 function openChat() { showTab('coach'); }
 function closeChat() { showTab('today'); }
@@ -3538,7 +3720,7 @@ ${lines.slice(-25).join('\n') || '  (none yet — log meals while wearing the se
 
 /* ═══════════════════════════════ AUTO-UPDATE */
 // Home-screen apps can hold on to an old copy — check for a newer build on open and reload once
-const BUILD = '2026-10-19.6';
+const BUILD = '2026-10-20.1';
 async function checkForUpdate() {
   try {
     const html = await (await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' })).text();

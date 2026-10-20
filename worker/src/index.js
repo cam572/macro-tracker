@@ -2,13 +2,14 @@
 // Holds the secrets the public tracker page can't: Whoop OAuth tokens today, LibreLinkUp next.
 // Each data source lives behind its own adapter so it can be swapped without touching the page.
 //
-// Secrets (wrangler secret put): APP_KEY, ENC_KEY, WHOOP_CLIENT_ID, WHOOP_CLIENT_SECRET, LIBRE_EMAIL, LIBRE_PASSWORD
+// Secrets (wrangler secret put): APP_KEY, ENC_KEY, WHOOP_CLIENT_ID, WHOOP_CLIENT_SECRET, LIBRE_EMAIL, LIBRE_PASSWORD, OPENAI_API_KEY
 // Vars (wrangler.toml): APP_URL
 // KV binding: STORE
 
 import { whoop } from './whoop.js';
 import { libre } from './libre.js';
 import { body } from './body.js';
+import { voice } from './voice.js';
 
 const json = (data, status = 200, env) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json', ...cors(env) },
@@ -51,7 +52,7 @@ export default {
           secretLength: (env.WHOOP_CLIENT_SECRET || '').length, secretTrimmedLength: (env.WHOOP_CLIENT_SECRET || '').trim().length,
           secretEqualsClientId: (env.WHOOP_CLIENT_SECRET || '').trim() === (env.WHOOP_CLIENT_ID || '').trim(),
         }, 200, env);
-        case 'GET /health':           return json({ ok: true, sources: { whoop: await whoop.status(env), libre: await libre.status(env) } }, 200, env);
+        case 'GET /health':           return json({ ok: true, sources: { whoop: await whoop.status(env), libre: await libre.status(env), voice: voice.status(env) } }, 200, env);
         case 'POST /whoop/connect':   return json({ url: await whoop.authorizeUrl(env, url.origin) }, 200, env);
         case 'GET /whoop/status':     return json(await whoop.status(env), 200, env);
         case 'GET /whoop/days':       return json(await whoop.days(env, Math.min(+url.searchParams.get('days') || 14, 60)), 200, env);
@@ -63,6 +64,8 @@ export default {
         case 'GET /libre/status':     return json(await libre.status(env), 200, env);
         case 'GET /libre/readings':   return json(await libre.readings(env, Math.min(+url.searchParams.get('hours') || 24, 24 * 30)), 200, env);
         case 'POST /libre/poll':      return json(await libre.pollNow(env), 200, env);
+        case 'GET /voice/status':     return json(voice.status(env), 200, env);
+        case 'POST /voice/transcribe':return json(await voice.transcribe(env, req), 200, env);
       }
       return json({ error: 'not found' }, 404, env);
     } catch (err) {

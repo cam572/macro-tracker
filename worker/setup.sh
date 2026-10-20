@@ -3,6 +3,7 @@
 #   ./setup.sh deploy   → creates storage, generates keys, deploys, prints your server URL + key
 #   ./setup.sh whoop    → asks for your Whoop Client ID/Secret (hidden) and saves them as secrets
 #   ./setup.sh libre    → asks for your LibreLinkUp email/password (hidden) and saves them as secrets
+#   ./setup.sh voice    → saves your OpenAI API key (hidden) so the coach can hear you
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -59,5 +60,16 @@ case "${1:-}" in
       && echo "✅ Libre 3 connected — readings are being collected every 15 minutes." \
       || { echo "⚠️  Connection test failed:"; curl -s -X POST -H "Authorization: Bearer $key" "$url/libre/poll"; echo; }
     ;;
-  *) echo "Usage: ./setup.sh deploy | whoop | libre"; exit 1 ;;
+  voice)
+    if [ -n "${OPENAI_API_KEY:-}" ] && read -r -p "Use the OpenAI key already saved on this Mac? [Y/n] " yn && [ "${yn:-Y}" != "n" ] && [ "${yn:-Y}" != "N" ]; then
+      okey=$OPENAI_API_KEY
+    else
+      read -r -s -p "OpenAI API key (hidden — paste ONCE, then Enter): " okey; echo
+    fi
+    okey=$(printf '%s' "$okey" | tr -d '[:space:]')
+    echo "  Got a ${#okey}-character key."
+    printf '%s' "$okey" | npx wrangler secret put OPENAI_API_KEY >/dev/null
+    echo "✅ Voice is set up. In the tracker: Coach → tap the mic."
+    ;;
+  *) echo "Usage: ./setup.sh deploy | whoop | libre | voice"; exit 1 ;;
 esac
